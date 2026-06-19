@@ -42,36 +42,37 @@ export default function LoginPage() {
     console.error("Auth Error:", error);
     let message = "Ocorreu um erro inesperado.";
     
-    switch (error.code) {
-      case 'auth/operation-not-allowed':
-        message = "Este método de login não está ativado no Firebase Console. Ative 'E-mail/Senha' ou 'Google'.";
-        break;
-      case 'auth/popup-blocked':
-        message = "O popup de login foi bloqueado pelo navegador.";
-        break;
-      case 'auth/popup-closed-by-user':
-        message = "A janela de login foi fechada antes da conclusão.";
-        break;
-      case 'auth/email-already-in-use':
-        message = "Este e-mail já está em uso por outra conta.";
-        break;
-      case 'auth/invalid-email':
-        message = "O endereço de e-mail não é válido.";
-        break;
-      case 'auth/wrong-password':
-        message = "Senha incorreta. Tente novamente.";
-        break;
-      case 'auth/user-not-found':
-        message = "Não encontramos uma conta com este e-mail.";
-        break;
-      case 'auth/weak-password':
-        message = "A senha deve ter pelo menos 6 caracteres.";
-        break;
-      case 'auth/configuration-not-found':
-        message = "Erro de configuração. Verifique as chaves do Firebase.";
-        break;
-      default:
-        message = error.message || "Falha na autenticação.";
+    if (error.message && error.message.includes('api-key-not-valid')) {
+      message = "Configuração do Firebase ausente ou inválida. Você precisa configurar sua API Key real no arquivo src/firebase/config.ts.";
+    } else {
+      switch (error.code) {
+        case 'auth/operation-not-allowed':
+          message = "Este método de login não está ativado no Firebase Console. Ative 'E-mail/Senha' ou 'Google'.";
+          break;
+        case 'auth/popup-blocked':
+          message = "O popup de login foi bloqueado pelo navegador.";
+          break;
+        case 'auth/popup-closed-by-user':
+          message = "A janela foi fechada antes da conclusão.";
+          break;
+        case 'auth/email-already-in-use':
+          message = "Este e-mail já está em uso.";
+          break;
+        case 'auth/invalid-email':
+          message = "E-mail inválido.";
+          break;
+        case 'auth/wrong-password':
+          message = "Senha incorreta.";
+          break;
+        case 'auth/user-not-found':
+          message = "Conta não encontrada.";
+          break;
+        case 'auth/weak-password':
+          message = "A senha deve ter pelo menos 6 caracteres.";
+          break;
+        default:
+          message = error.message || "Falha na autenticação.";
+      }
     }
     
     setErrorMessage(message);
@@ -147,7 +148,7 @@ export default function LoginPage() {
           <div className="space-y-1">
             <CardTitle className="text-3xl font-headline font-bold">FlowPDF</CardTitle>
             <CardDescription className="text-muted-foreground text-base">
-              Gerenciamento inteligente de documentos.
+              Gestão inteligente de documentos.
             </CardDescription>
           </div>
         </CardHeader>
@@ -155,8 +156,8 @@ export default function LoginPage() {
           {errorMessage && (
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Erro</AlertTitle>
-              <AlertDescription>{errorMessage}</AlertDescription>
+              <AlertTitle>Erro de Configuração</AlertTitle>
+              <AlertDescription className="text-xs">{errorMessage}</AlertDescription>
             </Alert>
           )}
 
@@ -240,7 +241,7 @@ export default function LoginPage() {
                   <Input 
                     id="signup-password" 
                     type="password" 
-                    placeholder="Crie uma senha (mín. 6 caracteres)" 
+                    placeholder="Mínimo 6 caracteres" 
                     className="pl-10"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -282,8 +283,8 @@ export default function LoginPage() {
           </Button>
         </CardContent>
         <CardFooter className="flex flex-col gap-4 text-center pb-8 pt-2">
-          <p className="text-xs text-muted-foreground px-8 leading-relaxed">
-            Ao entrar, você concorda com nossos Termos de Serviço e Política de Privacidade.
+          <p className="text-[10px] text-muted-foreground px-8 leading-relaxed">
+            Certifique-se de configurar suas chaves do Firebase em src/firebase/config.ts para habilitar o login.
           </p>
         </CardFooter>
       </Card>

@@ -1,6 +1,7 @@
 
 // Arquivo de configuração do Firebase. 
-// As chaves reais devem ser configuradas no Firebase Console.
+// Você deve substituir os valores abaixo pelas credenciais reais do seu projeto no Firebase Console.
+// Vá em: Configurações do Projeto > Geral > Seus aplicativos > Web app
 
 export const firebaseConfig = {
   apiKey: "env-api-key",
