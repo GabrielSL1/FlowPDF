@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -22,10 +23,12 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Folder } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 export function SidebarNav() {
   const { state, setCurrentFolder, addFolder, deleteFolder } = useFlowPDF();
   const auth = useAuth();
+  const { toast } = useToast();
   
   const rootFolders = state.folders.filter(f => f.parentId === null);
 
@@ -45,6 +48,10 @@ export function SidebarNav() {
     const name = window.prompt('Nome da nova pasta raiz:');
     if (name && name.trim()) {
       addFolder(name.trim(), null);
+      toast({
+        title: "Pasta criada",
+        description: `A pasta "${name.trim()}" foi criada com sucesso.`,
+      });
     }
   };
 
@@ -140,6 +147,7 @@ function FolderItem({
   onAddSubfolder: (name: string, parentId: string) => void;
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
+  const { toast } = useToast();
   const children = allFolders.filter(f => f.parentId === folder.id);
   const isActive = currentFolderId === folder.id;
 
@@ -150,6 +158,10 @@ function FolderItem({
     if (name && name.trim()) {
       onAddSubfolder(name.trim(), folder.id);
       setIsOpen(true);
+      toast({
+        title: "Subpasta criada",
+        description: `Subpasta "${name.trim()}" adicionada a ${folder.name}.`,
+      });
     }
   };
 
@@ -158,18 +170,23 @@ function FolderItem({
     e.stopPropagation();
     if (window.confirm(`Tem certeza que deseja excluir a pasta "${folder.name}" e todo seu conteúdo?`)) {
       onDelete(folder.id);
+      toast({
+        title: "Pasta excluída",
+        description: `A pasta "${folder.name}" foi removida.`,
+        variant: "destructive"
+      });
     }
   };
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div className="group flex items-center pr-1">
+      <div className="group flex items-center pr-1 relative">
         <CollapsibleTrigger asChild>
           <Button 
             variant="ghost" 
             className={cn(
-              "p-0 h-7 w-6 hover:bg-sidebar-accent shrink-0",
-              children.length === 0 && "opacity-0 pointer-events-none"
+              "p-0 h-9 w-6 hover:bg-sidebar-accent shrink-0 transition-opacity",
+              children.length === 0 ? "opacity-0 pointer-events-none" : "opacity-100"
             )}
           >
             {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
@@ -187,12 +204,11 @@ function FolderItem({
           <span className="truncate">{folder.name}</span>
         </Button>
         
-        <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity">
+        <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity absolute right-1">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-6 w-6 hover:bg-sidebar-accent rounded-full" 
-            title="Adicionar subpasta"
+            className="h-6 w-6 hover:bg-sidebar-accent rounded-full bg-sidebar-background/50 backdrop-blur-sm" 
             onClick={handleAddChild}
           >
             <Plus className="w-3 h-3" />
@@ -200,8 +216,7 @@ function FolderItem({
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-6 w-6 text-white/50 hover:text-destructive hover:bg-destructive/20 rounded-full" 
-            title="Excluir pasta"
+            className="h-6 w-6 text-white/50 hover:text-white hover:bg-destructive rounded-full bg-sidebar-background/50 backdrop-blur-sm" 
             onClick={handleDelete}
           >
             <Trash2 className="w-3 h-3" />

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
@@ -55,31 +56,33 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   });
 
   const addFolder = useCallback((name: string, parentId: string | null) => {
-    const newFolder: Folder = {
-      id: Math.random().toString(36).substring(2, 11),
-      name,
-      parentId,
-      createdAt: new Date().toISOString(),
-    };
-    setState(prev => ({
-      ...prev,
-      folders: [...prev.folders, newFolder]
-    }));
+    setState(prev => {
+      const newFolder: Folder = {
+        id: Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
+        name,
+        parentId,
+        createdAt: new Date().toISOString(),
+      };
+      return {
+        ...prev,
+        folders: [...prev.folders, newFolder]
+      };
+    });
   }, []);
 
   const deleteFolder = useCallback((id: string) => {
     setState(prev => {
-      // Função auxiliar para encontrar todos os IDs de pastas filhas recursivamente
-      const findChildFolderIds = (parentId: string, allFolders: Folder[]): string[] => {
-        const children = allFolders.filter(f => f.parentId === parentId);
+      // Coletar todos os IDs de pastas que devem ser removidas (recursivamente)
+      const getChildIds = (parentId: string): string[] => {
+        const children = prev.folders.filter(f => f.parentId === parentId);
         let ids = children.map(c => c.id);
         children.forEach(c => {
-          ids = [...ids, ...findChildFolderIds(c.id, allFolders)];
+          ids = [...ids, ...getChildIds(c.id)];
         });
         return ids;
       };
 
-      const idsToRemove = [id, ...findChildFolderIds(id, prev.folders)];
+      const idsToRemove = [id, ...getChildIds(id)];
 
       return {
         ...prev,
