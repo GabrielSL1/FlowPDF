@@ -2,8 +2,8 @@
 /**
  * Configuração do Firebase.
  * 
- * Este arquivo foi atualizado com as chaves necessárias para 
- * o funcionamento da autenticação e do banco de dados Firestore.
+ * Este arquivo contém as chaves públicas do seu projeto.
+ * Certifique-se de ativar os serviços Authentication e Firestore no console do Firebase.
  */
 
 export const firebaseConfig = {
