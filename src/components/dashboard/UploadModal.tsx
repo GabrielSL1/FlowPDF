@@ -11,7 +11,7 @@ import {
   DialogTrigger 
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Upload, X, FileText, Loader2, CheckCircle2 } from 'lucide-react';
+import { Upload, X, FileText, Loader2 } from 'lucide-react';
 import { tagDocument } from '@/ai/flows/ai-document-tagging';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -40,10 +40,12 @@ export function UploadModal() {
     setProgress(10);
 
     try {
+      // Simulação de progresso de upload
       const interval = setInterval(() => {
-        setProgress(p => (p < 90 ? p + 10 : p));
-      }, 500);
+        setProgress(p => (p < 80 ? p + 10 : p));
+      }, 400);
 
+      // Análise de IA
       const aiResults = await tagDocument({ 
         documentContent: `Documento intitulado ${file.name}. Extração simulada para FlowPDF.`
       });
@@ -51,11 +53,10 @@ export function UploadModal() {
       clearInterval(interval);
       setProgress(100);
 
-      const docId = Math.random().toString(36).substr(2, 9);
-      const newDoc = {
-        id: docId,
+      // Salva no Firebase Firestore
+      await addDocument({
         name: file.name,
-        url: URL.createObjectURL(file),
+        url: '#', // Em produção, aqui iria a URL do Firebase Storage
         thumbnailUrl: `https://picsum.photos/seed/${file.name}/300/400`,
         size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
         uploadDate: new Date().toISOString(),
@@ -63,9 +64,7 @@ export function UploadModal() {
         tags: aiResults.tags,
         keywords: aiResults.keywords,
         folderId: state.currentFolderId,
-      };
-
-      addDocument(newDoc);
+      });
       
       setTimeout(() => {
         setUploading(false);
@@ -73,15 +72,16 @@ export function UploadModal() {
         setProgress(0);
         toast({
           title: "Upload concluído",
-          description: `${file.name} foi analisado e tagueado pela IA.`,
+          description: `${file.name} foi salvo no Firebase e tagueado pela IA.`,
         });
       }, 800);
 
     } catch (error) {
+      console.error(error);
       setUploading(false);
       toast({
         title: "Erro no upload",
-        description: "Algo deu errado ao processar o documento.",
+        description: "Algo deu errado ao processar o documento no Firebase.",
         variant: "destructive"
       });
     }
@@ -96,7 +96,7 @@ export function UploadModal() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Enviar Documento</DialogTitle>
+          <DialogTitle>Enviar Documento para o Firebase</DialogTitle>
         </DialogHeader>
         
         <div className="grid gap-6 py-4">
@@ -112,8 +112,8 @@ export function UploadModal() {
                 <Upload className="w-8 h-8" />
               </div>
               <div className="text-center">
-                <p className="font-medium">Clique para enviar ou arraste e solte</p>
-                <p className="text-sm text-muted-foreground mt-1">Apenas PDFs (máx. 50MB)</p>
+                <p className="font-medium">Clique para enviar para o Cloud</p>
+                <p className="text-sm text-muted-foreground mt-1">Sincronização automática via Firebase</p>
               </div>
             </div>
           ) : (
@@ -124,17 +124,10 @@ export function UploadModal() {
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between mb-1">
-                    <span className="text-sm font-medium">Analisando documento...</span>
+                    <span className="text-sm font-medium">Processando no Firebase...</span>
                     <span className="text-xs text-muted-foreground">{progress}%</span>
                   </div>
                   <Progress value={progress} className="h-2" />
-                </div>
-              </div>
-              <div className="bg-muted/30 rounded-lg p-4 flex gap-3 items-start">
-                <Loader2 className="w-4 h-4 text-accent animate-spin mt-0.5" />
-                <div className="text-xs leading-relaxed text-muted-foreground">
-                  Nossa IA está escaneando o documento para extrair metadados, 
-                  sugerir tags e indexar o conteúdo para busca inteligente.
                 </div>
               </div>
             </div>

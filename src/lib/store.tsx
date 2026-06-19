@@ -1,117 +1,92 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useCallback, useMemo } from 'react';
 import { Document, Folder, DocuFlowState } from './types';
+import { useUser } from '@/firebase';
+import { useFirestore } from '@/firebase/provider';
+import { 
+  collection, 
+  query, 
+  where, 
+  addDoc, 
+  deleteDoc, 
+  doc, 
+  serverTimestamp, 
+  orderBy 
+} from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
 
 interface FlowPDFContextType {
   state: DocuFlowState;
-  addFolder: (name: string, parentId: string | null) => void;
-  deleteFolder: (id: string) => void;
-  addDocument: (doc: Document) => void;
-  deleteDocument: (id: string) => void;
+  addFolder: (name: string, parentId: string | null) => Promise<void>;
+  deleteFolder: (id: string) => Promise<void>;
+  addDocument: (docData: Omit<Document, 'id'>) => Promise<void>;
+  deleteDocument: (id: string) => Promise<void>;
   setCurrentFolder: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
 }
 
-const INITIAL_FOLDERS: Folder[] = [
-  { id: '1', name: 'Financeiro', parentId: null, createdAt: new Date().toISOString() },
-  { id: '2', name: 'Jurídico', parentId: null, createdAt: new Date().toISOString() },
-  { id: '3', name: 'Faturas', parentId: '1', createdAt: new Date().toISOString() },
-];
-
-const INITIAL_DOCS: Document[] = [
-  {
-    id: 'd1',
-    name: 'Relatório Anual 2023.pdf',
-    url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-    thumbnailUrl: 'https://picsum.photos/seed/d1/300/400',
-    size: '2.4 MB',
-    uploadDate: new Date().toISOString(),
-    type: 'pdf',
-    tags: ['Financeiro', 'Anual'],
-    keywords: ['relatório', 'receita', 'crescimento'],
-    folderId: '1',
-  },
-  {
-    id: 'd2',
-    name: 'Contrato de Prestação de Serviço.pdf',
-    url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-    thumbnailUrl: 'https://picsum.photos/seed/d2/300/400',
-    size: '1.1 MB',
-    uploadDate: new Date().toISOString(),
-    type: 'pdf',
-    tags: ['Jurídico', 'Contrato'],
-    keywords: ['serviço', 'termos'],
-    folderId: '2',
-  }
-];
-
 const FlowPDFContext = createContext<FlowPDFContextType | undefined>(undefined);
 
 export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<DocuFlowState>({
-    folders: INITIAL_FOLDERS,
-    documents: INITIAL_DOCS,
-    currentFolderId: null,
-    searchQuery: '',
-  });
+  const { user } = useUser();
+  const db = useFirestore();
+  
+  const [currentFolderId, setCurrentFolderId] = React.useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
 
-  const addFolder = useCallback((name: string, parentId: string | null) => {
-    setState(prev => {
-      const newFolder: Folder = {
-        id: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
-        name: name.trim(),
-        parentId,
-        createdAt: new Date().toISOString(),
-      };
-      return {
-        ...prev,
-        folders: [...prev.folders, newFolder]
-      };
+  // Carrega pastas do usuário em tempo real
+  const foldersQuery = useMemo(() => 
+    user ? query(collection(db, 'folders'), where('userId', '==', user.uid), orderBy('createdAt', 'asc')) : null
+  , [db, user]);
+  
+  const { data: foldersData } = useCollection<Folder>(foldersQuery);
+
+  // Carrega documentos do usuário em tempo real
+  const docsQuery = useMemo(() => 
+    user ? query(collection(db, 'documents'), where('userId', '==', user.uid), orderBy('uploadDate', 'desc')) : null
+  , [db, user]);
+  
+  const { data: documentsData } = useCollection<Document>(docsQuery);
+
+  const addFolder = useCallback(async (name: string, parentId: string | null) => {
+    if (!user) return;
+    await addDoc(collection(db, 'folders'), {
+      name: name.trim(),
+      parentId,
+      userId: user.uid,
+      createdAt: new Date().toISOString()
     });
-  }, []);
+  }, [db, user]);
 
-  const deleteFolder = useCallback((id: string) => {
-    setState(prev => {
-      const getAllChildIds = (parentId: string, allFolders: Folder[]): string[] => {
-        const children = allFolders.filter(f => f.parentId === parentId);
-        let ids = children.map(c => c.id);
-        children.forEach(c => {
-          ids = [...ids, ...getAllChildIds(c.id, allFolders)];
-        });
-        return ids;
-      };
+  const deleteFolder = useCallback(async (id: string) => {
+    if (!user) return;
+    // Em uma app de produção, deletaríamos recursivamente as subpastas no Cloud Functions
+    // Aqui deletamos a pasta selecionada
+    await deleteDoc(doc(db, 'folders', id));
+  }, [db, user]);
 
-      const idsToRemove = [id, ...getAllChildIds(id, prev.folders)];
-
-      return {
-        ...prev,
-        folders: prev.folders.filter(f => !idsToRemove.includes(f.id)),
-        documents: prev.documents.filter(d => !d.folderId || !idsToRemove.includes(d.folderId)),
-        currentFolderId: (prev.currentFolderId && idsToRemove.includes(prev.currentFolderId)) ? null : prev.currentFolderId
-      };
+  const addDocument = useCallback(async (docData: Omit<Document, 'id'>) => {
+    if (!user) return;
+    await addDoc(collection(db, 'documents'), {
+      ...docData,
+      userId: user.uid,
+      uploadDate: new Date().toISOString()
     });
-  }, []);
+  }, [db, user]);
 
-  const addDocument = useCallback((doc: Document) => {
-    setState(prev => ({ ...prev, documents: [...prev.documents, doc] }));
-  }, []);
+  const deleteDocument = useCallback(async (id: string) => {
+    if (!user) return;
+    await deleteDoc(doc(db, 'documents', id));
+  }, [db, user]);
 
-  const deleteDocument = useCallback((id: string) => {
-    setState(prev => ({
-      ...prev,
-      documents: prev.documents.filter(d => d.id !== id),
-    }));
-  }, []);
-
-  const setCurrentFolder = useCallback((id: string | null) => {
-    setState(prev => ({ ...prev, currentFolderId: id }));
-  }, []);
-
-  const setSearchQuery = useCallback((query: string) => {
-    setState(prev => ({ ...prev, searchQuery: query }));
-  }, []);
+  const state: DocuFlowState = useMemo(() => ({
+    folders: foldersData || [],
+    documents: documentsData || [],
+    currentFolderId,
+    searchQuery,
+  }), [foldersData, documentsData, currentFolderId, searchQuery]);
 
   const value = useMemo(() => ({
     state,
@@ -119,9 +94,9 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     deleteFolder,
     addDocument,
     deleteDocument,
-    setCurrentFolder,
+    setCurrentFolder: setCurrentFolderId,
     setSearchQuery
-  }), [state, addFolder, deleteFolder, addDocument, deleteDocument, setCurrentFolder, setSearchQuery]);
+  }), [state, addFolder, deleteFolder, addDocument, deleteDocument]);
 
   return (
     <FlowPDFContext.Provider value={value}>

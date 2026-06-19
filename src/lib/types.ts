@@ -10,6 +10,7 @@ export interface Document {
   tags: string[];
   keywords: string[];
   folderId: string | null;
+  userId?: string;
 }
 
 export interface Folder {
@@ -17,6 +18,7 @@ export interface Folder {
   name: string;
   parentId: string | null;
   createdAt: string;
+  userId?: string;
 }
 
 export interface DocuFlowState {
