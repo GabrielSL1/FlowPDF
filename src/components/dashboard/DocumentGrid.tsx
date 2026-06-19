@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import { useDocuFlow } from '@/lib/store';
+import { useFlowPDF } from '@/lib/store';
 import { FileText, MoreVertical, Trash2, Eye, Download, Tag } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,10 +17,12 @@ import { format } from 'date-fns';
 import { PDFViewerModal } from './PDFViewerModal';
 
 export function DocumentGrid() {
-  const { state, deleteDocument } = useDocuFlow();
+  const { state, deleteDocument } = useFlowPDF();
   const [viewingDoc, setViewingDoc] = React.useState<string | null>(null);
 
   const filteredDocs = state.documents.filter(doc => {
+    // Se estiver no dashboard (currentFolderId === null), mostra todos.
+    // Caso contrário, filtra pela pasta.
     const inFolder = state.currentFolderId === null || doc.folderId === state.currentFolderId;
     const matchesSearch = doc.name.toLowerCase().includes(state.searchQuery.toLowerCase()) ||
                         doc.tags.some(tag => tag.toLowerCase().includes(state.searchQuery.toLowerCase()));

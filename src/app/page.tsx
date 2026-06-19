@@ -1,8 +1,10 @@
 
 "use client";
 
-import React from 'react';
-import { DocuFlowProvider } from '@/lib/store';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@/firebase';
+import { FlowPDFProvider } from '@/lib/store';
 import { SidebarNav } from '@/components/layout/SidebarNav';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DocumentGrid } from '@/components/dashboard/DocumentGrid';
@@ -11,10 +13,30 @@ import {
   SidebarInset,
   SidebarTrigger
 } from '@/components/ui/sidebar';
+import { Loader2 } from 'lucide-react';
 
-export default function DocuFlowPage() {
+export default function FlowPDFPage() {
+  const { user, loading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
   return (
-    <DocuFlowProvider>
+    <FlowPDFProvider>
       <SidebarProvider defaultOpen={true}>
         <div className="flex h-screen w-full bg-background overflow-hidden">
           {/* Sidebar Area */}
@@ -29,8 +51,8 @@ export default function DocuFlowPage() {
             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/10">
               <div className="max-w-[1600px] mx-auto">
                 <div className="p-8 pb-0">
-                  <h1 className="text-3xl font-headline font-bold text-foreground">Documents</h1>
-                  <p className="text-muted-foreground mt-1">Manage and navigate your intelligent document workspace.</p>
+                  <h1 className="text-3xl font-headline font-bold text-foreground">Documentos</h1>
+                  <p className="text-muted-foreground mt-1">Gerencie e navegue no seu espaço de trabalho inteligente.</p>
                 </div>
                 
                 <DocumentGrid />
@@ -39,6 +61,6 @@ export default function DocuFlowPage() {
           </main>
         </div>
       </SidebarProvider>
-    </DocuFlowProvider>
+    </FlowPDFProvider>
   );
 }

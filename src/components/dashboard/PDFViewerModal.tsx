@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import { useDocuFlow } from '@/lib/store';
+import { useFlowPDF } from '@/lib/store';
 import { 
   Dialog, 
   DialogContent, 
@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
 export function PDFViewerModal({ docId, onClose }: { docId: string, onClose: () => void }) {
-  const { state } = useDocuFlow();
+  const { state } = useFlowPDF();
   const doc = state.documents.find(d => d.id === docId);
 
   if (!doc) return null;

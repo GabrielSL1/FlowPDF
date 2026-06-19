@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { Document, Folder, DocuFlowState } from './types';
 
-interface DocuFlowContextType {
+interface FlowPDFContextType {
   state: DocuFlowState;
   addFolder: (name: string, parentId: string | null) => void;
   deleteFolder: (id: string) => void;
@@ -15,9 +15,9 @@ interface DocuFlowContextType {
 }
 
 const INITIAL_FOLDERS: Folder[] = [
-  { id: '1', name: 'Finance', parentId: null, createdAt: new Date().toISOString() },
-  { id: '2', name: 'Legal', parentId: null, createdAt: new Date().toISOString() },
-  { id: '3', name: 'Invoices', parentId: '1', createdAt: new Date().toISOString() },
+  { id: '1', name: 'Financeiro', parentId: null, createdAt: new Date().toISOString() },
+  { id: '2', name: 'Jurídico', parentId: null, createdAt: new Date().toISOString() },
+  { id: '3', name: 'Faturas', parentId: '1', createdAt: new Date().toISOString() },
 ];
 
 const INITIAL_DOCS: Document[] = [
@@ -45,9 +45,9 @@ const INITIAL_DOCS: Document[] = [
   }
 ];
 
-const DocuFlowContext = createContext<DocuFlowContextType | undefined>(undefined);
+const FlowPDFContext = createContext<FlowPDFContextType | undefined>(undefined);
 
-export function DocuFlowProvider({ children }: { children: React.ReactNode }) {
+export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<DocuFlowState>({
     folders: INITIAL_FOLDERS,
     documents: INITIAL_DOCS,
@@ -92,7 +92,7 @@ export function DocuFlowProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, searchQuery: query }));
   };
 
-  return React.createElement(DocuFlowContext.Provider, {
+  return React.createElement(FlowPDFContext.Provider, {
     value: {
       state,
       addFolder,
@@ -105,8 +105,8 @@ export function DocuFlowProvider({ children }: { children: React.ReactNode }) {
   }, children);
 }
 
-export function useDocuFlow() {
-  const context = useContext(DocuFlowContext);
-  if (!context) throw new Error('useDocuFlow must be used within a DocuFlowProvider');
+export function useFlowPDF() {
+  const context = useContext(FlowPDFContext);
+  if (!context) throw new Error('useFlowPDF deve ser usado dentro de um FlowPDFProvider');
   return context;
 }

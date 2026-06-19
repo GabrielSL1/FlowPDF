@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useDocuFlow } from '@/lib/store';
+import { useFlowPDF } from '@/lib/store';
 import { 
   Dialog, 
   DialogContent, 
@@ -20,7 +20,7 @@ export function UploadModal() {
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const { addDocument, state } = useDocuFlow();
+  const { addDocument, state } = useFlowPDF();
   const { toast } = useToast();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,8 +29,8 @@ export function UploadModal() {
 
     if (file.type !== 'application/pdf') {
       toast({
-        title: "Invalid file type",
-        description: "Please upload a PDF document.",
+        title: "Tipo de arquivo inválido",
+        description: "Por favor, envie um documento PDF.",
         variant: "destructive"
       });
       return;
@@ -46,10 +46,8 @@ export function UploadModal() {
       }, 500);
 
       // AI Analysis
-      // In a real app, we'd extract text from the PDF.
-      // For this scaffold, we'll provide the filename and some generic context.
       const aiResults = await tagDocument({ 
-        documentContent: `Document titled ${file.name}. This is a simulated extraction of content for AI tagging purposes in DocuFlow.`
+        documentContent: `Documento intitulado ${file.name}. Extração simulada para FlowPDF.`
       });
 
       clearInterval(interval);
@@ -74,16 +72,16 @@ export function UploadModal() {
         setOpen(false);
         setProgress(0);
         toast({
-          title: "Upload successful",
-          description: `${file.name} has been analyzed and tagged by AI.`,
+          title: "Upload concluído",
+          description: `${file.name} foi analisado e tagueado pela IA.`,
         });
       }, 800);
 
     } catch (error) {
       setUploading(false);
       toast({
-        title: "Upload failed",
-        description: "Something went wrong while processing the document.",
+        title: "Erro no upload",
+        description: "Algo deu errado ao processar o documento.",
         variant: "destructive"
       });
     }
@@ -98,7 +96,7 @@ export function UploadModal() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Upload Document</DialogTitle>
+          <DialogTitle>Enviar Documento</DialogTitle>
         </DialogHeader>
         
         <div className="grid gap-6 py-4">
@@ -114,8 +112,8 @@ export function UploadModal() {
                 <Upload className="w-8 h-8" />
               </div>
               <div className="text-center">
-                <p className="font-medium">Click to upload or drag and drop</p>
-                <p className="text-sm text-muted-foreground mt-1">PDF documents only (max. 50MB)</p>
+                <p className="font-medium">Clique para enviar ou arraste e solte</p>
+                <p className="text-sm text-muted-foreground mt-1">Apenas PDFs (máx. 50MB)</p>
               </div>
             </div>
           ) : (
@@ -126,7 +124,7 @@ export function UploadModal() {
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between mb-1">
-                    <span className="text-sm font-medium">Analyzing document...</span>
+                    <span className="text-sm font-medium">Analisando documento...</span>
                     <span className="text-xs text-muted-foreground">{progress}%</span>
                   </div>
                   <Progress value={progress} className="h-2" />
@@ -134,9 +132,9 @@ export function UploadModal() {
               </div>
               <div className="bg-muted/30 rounded-lg p-4 flex gap-3 items-start">
                 <Loader2 className="w-4 h-4 text-accent animate-spin mt-0.5" />
-                <div className="text-xs leading-relaxed">
-                  Our AI is currently scanning the document to extract key metadata, 
-                  suggest relevant tags, and index content for smart searching.
+                <div className="text-xs leading-relaxed text-muted-foreground">
+                  Nossa IA está escaneando o documento para extrair metadados, 
+                  sugerir tags e indexar o conteúdo para busca inteligente.
                 </div>
               </div>
             </div>

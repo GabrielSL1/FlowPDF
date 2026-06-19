@@ -2,7 +2,9 @@
 "use client";
 
 import React from 'react';
-import { useDocuFlow } from '@/lib/store';
+import { useFlowPDF } from '@/lib/store';
+import { useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
 import { 
   Folder as FolderIcon, 
   ChevronRight, 
@@ -10,7 +12,8 @@ import {
   Plus, 
   Trash2, 
   LayoutDashboard,
-  HardDrive
+  HardDrive,
+  LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -22,18 +25,23 @@ import {
 import { Folder } from '@/lib/types';
 
 export function SidebarNav() {
-  const { state, setCurrentFolder, addFolder, deleteFolder } = useDocuFlow();
+  const { state, setCurrentFolder, addFolder, deleteFolder } = useFlowPDF();
+  const auth = useAuth();
   
   const rootFolders = state.folders.filter(f => f.parentId === null);
 
+  const handleLogout = async () => {
+    if (auth) await signOut(auth);
+  };
+
   return (
     <div className="flex flex-col h-full text-sidebar-foreground">
-      <div className="p-6">
+      <div className="p-6 flex-1">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground font-bold text-xl font-headline">
-            D
+            F
           </div>
-          <span className="text-2xl font-bold font-headline tracking-tight">DocuFlow</span>
+          <span className="text-2xl font-bold font-headline tracking-tight">FlowPDF</span>
         </div>
 
         <nav className="space-y-1">
@@ -50,13 +58,13 @@ export function SidebarNav() {
           </Button>
           
           <div className="pt-6 pb-2 px-2 text-xs font-semibold uppercase tracking-wider opacity-60 flex items-center justify-between">
-            Folders
+            Pastas
             <Button 
               variant="ghost" 
               size="icon" 
               className="h-5 w-5 hover:bg-sidebar-accent"
               onClick={() => {
-                const name = prompt('New Folder Name:');
+                const name = prompt('Nome da Pasta:');
                 if (name) addFolder(name, null);
               }}
             >
@@ -74,7 +82,7 @@ export function SidebarNav() {
                 onSelect={setCurrentFolder}
                 onDelete={deleteFolder}
                 onAddSubfolder={(parentId) => {
-                  const name = prompt('Subfolder Name:');
+                  const name = prompt('Nome da Subpasta:');
                   if (name) addFolder(name, parentId);
                 }}
               />
@@ -83,17 +91,26 @@ export function SidebarNav() {
         </nav>
       </div>
 
-      <div className="mt-auto p-6">
+      <div className="p-6 space-y-4">
         <div className="bg-sidebar-accent/40 rounded-xl p-4 border border-sidebar-border/30">
           <div className="flex items-center gap-2 mb-2">
             <HardDrive className="w-4 h-4 text-accent" />
-            <span className="text-sm font-medium">Storage</span>
+            <span className="text-sm font-medium">Armazenamento</span>
           </div>
           <div className="h-1.5 w-full bg-sidebar-border rounded-full overflow-hidden">
             <div className="h-full bg-accent w-[35%]" />
           </div>
-          <p className="text-xs mt-2 opacity-70">1.2 GB of 5 GB used</p>
+          <p className="text-xs mt-2 opacity-70">1.2 GB de 5 GB usados</p>
         </div>
+
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start gap-3 text-sidebar-foreground hover:bg-destructive/20 hover:text-white transition-colors"
+          onClick={handleLogout}
+        >
+          <LogOut className="w-5 h-5" />
+          Sair do Sistema
+        </Button>
       </div>
     </div>
   );
