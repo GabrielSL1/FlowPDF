@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -42,6 +43,20 @@
         "userId": { "type": "string" }
       },
       "required": ["name", "url", "userId", "uploadDate"]
+    },
+    "Notification": {
+      "title": "Notificação",
+      "description": "Avisos do sistema para o usuário.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["upload_success", "info"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["userId", "message", "createdAt", "read"]
     }
   },
   "auth": {
@@ -55,6 +70,10 @@
     "/documents/{docId}": {
       "schema": "#/entities/Document",
       "description": "Coleção de documentos PDF vinculados a pastas e usuários."
+    },
+    "/notifications/{notifId}": {
+      "schema": "#/entities/Notification",
+      "description": "Coleção de notificações por usuário."
     }
   }
 }

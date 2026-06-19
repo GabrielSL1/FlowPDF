@@ -1,12 +1,12 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useFlowPDF } from '@/lib/store';
-import { useUser, useAuth } from '@/firebase';
+import { useUser, useAuth, useFirestore, useCollection } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import { Search, Bell, Settings, LogOut, User as UserIcon } from 'lucide-react';
+import { Search, Bell, Settings, LogOut, User as UserIcon, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -20,14 +20,41 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { query, collection, where, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
+import { Notification } from '@/lib/types';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export function DashboardHeader() {
   const { state, setSearchQuery } = useFlowPDF();
   const { user } = useUser();
   const auth = useAuth();
+  const db = useFirestore();
   const router = useRouter();
   const [showSettings, setShowSettings] = useState(false);
   
+  // Buscar notificações em tempo real
+  const notificationsQuery = useMemo(() => 
+    user ? query(
+      collection(db, 'notifications'), 
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'desc'),
+      limit(5)
+    ) : null
+  , [db, user]);
+
+  const { data: notifications } = useCollection<Notification>(notificationsQuery);
+  const unreadCount = notifications?.filter(n => !n.read).length || 0;
+
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'notifications', id), { read: true });
+    } catch (e) {
+      console.error("Erro ao marcar como lida:", e);
+    }
+  };
+
   const currentFolder = state.folders.find(f => f.id === state.currentFolderId);
   const path = currentFolder ? ` / ${currentFolder.name}` : '';
 
@@ -63,9 +90,50 @@ export function DashboardHeader() {
         <UploadModal />
         
         <div className="flex items-center gap-2 border-l pl-4 ml-4">
-          <Button variant="ghost" size="icon" className="text-muted-foreground">
-            <Bell className="w-5 h-5" />
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-muted-foreground relative">
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-accent rounded-full border-2 border-white" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="end">
+              <div className="p-4 border-b flex items-center justify-between">
+                <h4 className="font-bold text-sm">Notificações</h4>
+                {unreadCount > 0 && <span className="text-[10px] bg-accent/10 text-accent px-2 py-0.5 rounded-full font-bold">{unreadCount} novas</span>}
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notifications && notifications.length > 0 ? (
+                  notifications.map((n) => (
+                    <div 
+                      key={n.id} 
+                      className={`p-4 border-b last:border-0 hover:bg-muted/50 transition-colors cursor-pointer group flex gap-3 ${!n.read ? 'bg-primary/5' : ''}`}
+                      onClick={() => !n.read && handleMarkAsRead(n.id)}
+                    >
+                      <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${n.type === 'upload_success' ? 'bg-green-100 text-green-600' : 'bg-primary/10 text-primary'}`}>
+                        <Check className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground leading-tight mb-1">{n.message}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {format(new Date(n.createdAt), "dd 'de' MMM, HH:mm", { locale: ptBR })}
+                        </p>
+                      </div>
+                      {!n.read && (
+                        <div className="w-1.5 h-1.5 bg-accent rounded-full mt-1.5" />
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-muted-foreground">
+                    <p className="text-xs">Nenhuma notificação por aqui.</p>
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

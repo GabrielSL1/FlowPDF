@@ -21,6 +21,15 @@ export interface Folder {
   userId?: string;
 }
 
+export interface Notification {
+  id: string;
+  userId: string;
+  message: string;
+  type: 'upload_success' | 'info';
+  createdAt: string;
+  read: boolean;
+}
+
 export interface DocuFlowState {
   folders: Folder[];
   documents: Document[];

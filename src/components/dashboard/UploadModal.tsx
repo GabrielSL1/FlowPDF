@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { useFlowPDF } from '@/lib/store';
-import { useStorage, useUser } from '@/firebase';
+import { useStorage, useUser, useFirestore } from '@/firebase';
 import { 
   Dialog, 
   DialogContent, 
@@ -17,6 +17,7 @@ import { tagDocument } from '@/ai/flows/ai-document-tagging';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc } from 'firebase/firestore';
 
 export function UploadModal() {
   const [open, setOpen] = useState(false);
@@ -25,6 +26,7 @@ export function UploadModal() {
   const { addDocument, state } = useFlowPDF();
   const { user } = useUser();
   const storage = useStorage();
+  const db = useFirestore();
   const { toast } = useToast();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,31 +46,26 @@ export function UploadModal() {
     setProgress(0);
 
     try {
-      // 1. Criar referência no Storage (Pasta do usuário / nome do arquivo)
       const storageRef = ref(storage, `users/${user.uid}/documents/${Date.now()}_${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
-      // 2. Monitorar progresso do upload físico
       uploadTask.on('state_changed', 
         (snapshot) => {
           const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-          setProgress(percent * 0.7); // 70% do progresso é o upload, 30% é a IA
+          setProgress(percent * 0.7); 
         }, 
         (error) => {
           throw error;
         },
         async () => {
-          // 3. Upload concluído, pegar URL
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          // 4. Análise de IA (Simulada com conteúdo base para economizar tokens, 
-          // em produção você extrairia o texto do PDF)
           setProgress(85);
           const aiResults = await tagDocument({ 
             documentContent: `Documento: ${file.name}. Tamanho: ${file.size} bytes.`
           });
 
-          // 5. Salvar no Firestore com a URL real
+          // 1. Salvar no Firestore
           await addDocument({
             name: file.name,
             url: downloadURL,
@@ -79,6 +76,15 @@ export function UploadModal() {
             tags: aiResults.tags,
             keywords: aiResults.keywords,
             folderId: state.currentFolderId,
+          });
+
+          // 2. Criar Notificação no Firestore
+          await addDoc(collection(db, 'notifications'), {
+            userId: user.uid,
+            message: `PDF "${file.name}" carregado e analisado pela IA com sucesso!`,
+            type: 'upload_success',
+            createdAt: new Date().toISOString(),
+            read: false
           });
 
           setProgress(100);
