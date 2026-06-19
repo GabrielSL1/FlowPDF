@@ -21,7 +21,10 @@ export function DocumentGrid() {
   const [viewingDoc, setViewingDoc] = React.useState<string | null>(null);
 
   const filteredDocs = state.documents.filter(doc => {
-    const inFolder = doc.folderId === state.currentFolderId;
+    // Se estivermos no Dashboard (currentFolderId === null), mostrar todos.
+    // Caso contrário, mostrar apenas os da pasta selecionada.
+    const inFolder = state.currentFolderId === null || doc.folderId === state.currentFolderId;
+    
     const matchesSearch = doc.name.toLowerCase().includes(state.searchQuery.toLowerCase()) ||
                         doc.tags.some(tag => tag.toLowerCase().includes(state.searchQuery.toLowerCase()));
     return inFolder && matchesSearch;
@@ -33,8 +36,8 @@ export function DocumentGrid() {
         <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-4">
           <FileText className="w-10 h-10 opacity-20" />
         </div>
-        <p className="text-lg font-medium">No documents found</p>
-        <p className="text-sm">Upload a new PDF to get started</p>
+        <p className="text-lg font-medium">Nenhum documento encontrado</p>
+        <p className="text-sm">Faça upload de um PDF para começar</p>
       </div>
     );
   }
@@ -42,11 +45,11 @@ export function DocumentGrid() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
       {filteredDocs.map((doc) => (
-        <Card key={doc.id} className="group hover:shadow-lg transition-all duration-300 border-border/50 overflow-hidden">
+        <Card key={doc.id} className="group hover:shadow-lg transition-all duration-300 border-border/50 overflow-hidden cursor-pointer" onClick={() => setViewingDoc(doc.id)}>
           <CardContent className="p-0">
             <div className="aspect-[4/3] bg-muted flex items-center justify-center relative group-hover:bg-muted/50 transition-colors">
               <FileText className="w-16 h-16 text-primary/40" />
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="secondary" size="icon" className="h-8 w-8 bg-background shadow-sm">
@@ -55,10 +58,10 @@ export function DocumentGrid() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-40">
                     <DropdownMenuItem onClick={() => setViewingDoc(doc.id)}>
-                      <Eye className="w-4 h-4 mr-2" /> View
+                      <Eye className="w-4 h-4 mr-2" /> Visualizar
                     </DropdownMenuItem>
                     <DropdownMenuItem className="text-destructive" onClick={() => deleteDocument(doc.id)}>
-                      <Trash2 className="w-4 h-4 mr-2" /> Delete
+                      <Trash2 className="w-4 h-4 mr-2" /> Excluir
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
