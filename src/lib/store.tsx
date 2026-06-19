@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useCallback, useMemo } from 'react';
@@ -29,7 +28,7 @@ interface FlowPDFContextType {
 const FlowPDFContext = createContext<FlowPDFContextType | undefined>(undefined);
 
 export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useUser();
+  const { user, loading: userLoading } = useUser();
   const db = useFirestore();
   
   const [currentFolderId, setCurrentFolderId] = React.useState<string | null>(null);
@@ -39,8 +38,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     if (!db || !user) return null;
     return query(
       collection(db, 'folders'), 
-      where('userId', '==', user.uid), 
-      orderBy('createdAt', 'asc')
+      where('userId', '==', user.uid)
     );
   }, [db, user]);
   
@@ -50,16 +48,15 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     if (!db || !user) return null;
     return query(
       collection(db, 'documents'), 
-      where('userId', '==', user.uid), 
-      orderBy('uploadDate', 'desc')
+      where('userId', '==', user.uid)
     );
   }, [db, user]);
   
   const { data: documentsData } = useCollection<Document>(docsQuery);
 
   const state: DocuFlowState = useMemo(() => ({
-    folders: foldersData || [],
-    documents: documentsData || [],
+    folders: (foldersData || []).sort((a, b) => a.name.localeCompare(b.name)),
+    documents: (documentsData || []).sort((a, b) => b.uploadDate.localeCompare(a.uploadDate)),
     currentFolderId,
     searchQuery,
   }), [foldersData, documentsData, currentFolderId, searchQuery]);

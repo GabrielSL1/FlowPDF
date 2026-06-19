@@ -56,9 +56,8 @@ export function SidebarNav() {
 
   const rootFolders = state.folders.filter(f => f.parentId === null);
 
-  // Cálculo fictício de uso (baseado na quantidade de documentos para fins visuais)
-  const usedStorageMB = state.documents.length * 1.2; // Simulação: 1.2MB por doc
-  const totalStorageMB = 5120; // 5GB em MB
+  const usedStorageMB = state.documents.length * 1.2;
+  const totalStorageMB = 5120;
   const usagePercentage = Math.min((usedStorageMB / totalStorageMB) * 100, 100);
 
   const handleLogout = async () => {
@@ -82,8 +81,8 @@ export function SidebarNav() {
         await addFolder(newFolderName.trim(), parentFolderId);
         setIsDialogOpen(false);
         toast({
-          title: "Sucesso!",
-          description: `Pasta "${newFolderName.trim()}" sincronizada com o Firebase.`,
+          title: "Pasta Criada",
+          description: `"${newFolderName.trim()}" foi sincronizada.`,
         });
       } catch (err) {
         toast({
@@ -125,30 +124,23 @@ export function SidebarNav() {
               size="icon" 
               className="h-6 w-6 hover:bg-sidebar-accent rounded-full text-white"
               onClick={() => openNewFolderDialog(null)}
-              title="Nova Pasta Raiz"
             >
               <Plus className="w-4 h-4" />
             </Button>
           </div>
 
           <div className="space-y-1 mt-2">
-            {rootFolders.length === 0 ? (
-              <div className="px-3 py-4 text-xs italic opacity-40 text-center border border-dashed border-white/10 rounded-lg">
-                Nenhuma pasta criada
-              </div>
-            ) : (
-              rootFolders.map(folder => (
-                <FolderItem 
-                  key={folder.id} 
-                  folder={folder} 
-                  allFolders={state.folders} 
-                  currentFolderId={state.currentFolderId}
-                  onSelect={setCurrentFolder}
-                  onDelete={deleteFolder}
-                  onAddSubfolder={openNewFolderDialog}
-                />
-              ))
-            )}
+            {rootFolders.map(folder => (
+              <FolderItem 
+                key={folder.id} 
+                folder={folder} 
+                allFolders={state.folders} 
+                currentFolderId={state.currentFolderId}
+                onSelect={setCurrentFolder}
+                onDelete={deleteFolder}
+                onAddSubfolder={openNewFolderDialog}
+              />
+            ))}
           </div>
         </nav>
       </div>
@@ -160,16 +152,7 @@ export function SidebarNav() {
               <HardDrive className="w-4 h-4 text-accent" />
               <span className="text-sm font-medium">Armazenamento</span>
             </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="w-3.5 h-3.5 opacity-50 cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p className="text-xs">Você está no Plano Gratuito (Spark) com 5GB de cota.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Info className="w-3.5 h-3.5 opacity-50" />
           </div>
           <div className="h-1.5 w-full bg-sidebar-border rounded-full overflow-hidden">
             <div 
@@ -178,7 +161,7 @@ export function SidebarNav() {
             />
           </div>
           <div className="flex justify-between mt-2">
-            <p className="text-[10px] opacity-70 uppercase tracking-widest font-bold">
+            <p className="text-[10px] opacity-70 uppercase font-bold">
               {usedStorageMB.toFixed(1)} MB / 5 GB
             </p>
             <p className="text-[10px] opacity-70 font-bold">{Math.round(usagePercentage)}%</p>
@@ -187,7 +170,7 @@ export function SidebarNav() {
 
         <Button 
           variant="ghost" 
-          className="w-full justify-start gap-3 text-sidebar-foreground hover:bg-destructive/20 hover:text-white transition-colors"
+          className="w-full justify-start gap-3 text-sidebar-foreground hover:bg-destructive/20 hover:text-white"
           onClick={handleLogout}
         >
           <LogOut className="w-5 h-5" />
@@ -208,7 +191,6 @@ export function SidebarNav() {
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 placeholder="Ex: Contratos, Notas Fiscais..."
-                autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleCreateFolder();
                 }}
@@ -251,10 +233,9 @@ function FolderItem({
           <Button 
             variant="ghost" 
             className={cn(
-              "p-0 h-9 w-6 hover:bg-sidebar-accent shrink-0 transition-opacity",
-              children.length === 0 ? "opacity-0 pointer-events-none" : "opacity-100"
+              "p-0 h-9 w-6 hover:bg-sidebar-accent shrink-0",
+              children.length === 0 && "opacity-0 pointer-events-none"
             )}
-            onClick={(e) => e.stopPropagation()}
           >
             {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </Button>
@@ -271,13 +252,12 @@ function FolderItem({
           <span className="truncate">{folder.name}</span>
         </Button>
         
-        <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity absolute right-1">
+        <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 absolute right-1">
           <Button 
             variant="ghost" 
             size="icon" 
             className="h-6 w-6 hover:bg-sidebar-accent rounded-full bg-sidebar-background/80" 
             onClick={(e) => {
-              e.preventDefault();
               e.stopPropagation();
               onAddSubfolder(folder.id);
               setIsOpen(true);
@@ -299,17 +279,18 @@ function FolderItem({
                     <Trash2 className="w-3 h-3" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Excluir Pasta</TooltipContent>
+                <TooltipContent>Excluir</TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <DialogContent onClick={(e) => e.stopPropagation()}>
+            <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Excluir Pasta?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Isso excluirá permanentemente <strong>{folder.name}</strong> e todos os itens dentro dela.
+                  Isso excluirá <strong>{folder.name}</strong> e todos os arquivos dentro dela permanentemente.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <div className="flex justify-end gap-3 mt-4">
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
                 <AlertDialogAction 
                   className="bg-destructive hover:bg-destructive/90" 
                   onClick={(e) => {
@@ -319,8 +300,8 @@ function FolderItem({
                 >
                   Confirmar Exclusão
                 </AlertDialogAction>
-              </div>
-            </DialogContent>
+              </AlertDialogFooter>
+            </AlertDialogContent>
           </AlertDialog>
         </div>
       </div>
