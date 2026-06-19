@@ -16,7 +16,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Mail, Lock, User as UserIcon, AlertCircle, PlayCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, User as UserIcon, AlertCircle, PlayCircle, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -43,7 +43,7 @@ export default function LoginPage() {
     let message = "Ocorreu um erro inesperado.";
     
     if (error.code === 'auth/invalid-api-key' || error.message?.includes('api-key-not-valid')) {
-      message = "Configuração do Firebase pendente. Use o 'Acesso de Teste' abaixo para visualizar o sistema.";
+      message = "Configuração do Firebase pendente. Use as credenciais de teste abaixo.";
     } else {
       switch (error.code) {
         case 'auth/operation-not-allowed':
@@ -80,29 +80,43 @@ export default function LoginPage() {
     });
   };
 
-  const handleGoogleLogin = async () => {
-    if (!auth) return;
-    setAuthLoading(true);
-    setErrorMessage(null);
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      handleFirebaseError(error);
-    } finally {
-      setAuthLoading(false);
-    }
+  const loginAsDemo = (name = "Usuário Convidado", role = "user") => {
+    const mockUser = {
+      uid: 'demo-' + Math.random().toString(36).substr(2, 9),
+      email: email || 'admin@flowpdf.com',
+      displayName: name,
+      photoURL: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100',
+      role: role
+    };
+    localStorage.setItem('flowpdf_demo_user', JSON.stringify(mockUser));
+    window.location.reload();
   };
 
   const handleEmailAuth = async (mode: 'login' | 'signup') => {
-    if (!auth || !email || !password) {
-      setErrorMessage("Por favor, preencha todos os campos.");
+    if (!email || !password) {
+      toast({
+        variant: "destructive",
+        title: "Campos obrigatórios",
+        description: "Preencha e-mail e senha.",
+      });
       return;
     }
+
+    // SIMULAÇÃO DE LOGIN ADMIN PARA TESTES
+    if (mode === 'login' && email === 'admin@flowpdf.com' && password === 'admin123') {
+      setAuthLoading(true);
+      setTimeout(() => {
+        loginAsDemo("Administrador FlowPDF", "admin");
+      }, 1000);
+      return;
+    }
+
     setAuthLoading(true);
     setErrorMessage(null);
     
     try {
+      if (!auth) throw new Error("Firebase não configurado");
+
       if (mode === 'signup') {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         if (displayName) {
@@ -118,15 +132,21 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = () => {
-    const mockUser = {
-      uid: 'demo-123',
-      email: 'convidado@flowpdf.com',
-      displayName: 'Usuário Convidado',
-      photoURL: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'
-    };
-    localStorage.setItem('flowpdf_demo_user', JSON.stringify(mockUser));
-    window.location.reload(); // Recarrega para o hook useUser capturar o novo estado
+  const handleGoogleLogin = async () => {
+    if (!auth) {
+      setErrorMessage("Firebase não configurado. Use o login de teste.");
+      return;
+    }
+    setAuthLoading(true);
+    setErrorMessage(null);
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
+      handleFirebaseError(error);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   if (loading) {
@@ -157,16 +177,6 @@ export default function LoginPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {errorMessage && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Configuração Pendente</AlertTitle>
-              <AlertDescription className="text-xs">
-                O Firebase ainda não foi configurado. Você pode testar o sistema usando o botão de **Acesso de Teste** abaixo.
-              </AlertDescription>
-            </Alert>
-          )}
-
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Entrar</TabsTrigger>
@@ -181,7 +191,7 @@ export default function LoginPage() {
                   <Input 
                     id="email" 
                     type="email" 
-                    placeholder="seu@email.com" 
+                    placeholder="admin@flowpdf.com" 
                     className="pl-10"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -195,7 +205,7 @@ export default function LoginPage() {
                   <Input 
                     id="password" 
                     type="password" 
-                    placeholder="••••••••" 
+                    placeholder="admin123" 
                     className="pl-10"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -288,22 +298,17 @@ export default function LoginPage() {
               </svg>
               Google
             </Button>
-
-            <Button 
-              variant="secondary"
-              className="w-full h-11 gap-3 font-semibold bg-accent/10 text-accent hover:bg-accent/20 border-accent/20 border"
-              onClick={handleDemoLogin}
-            >
-              <PlayCircle className="w-5 h-5" />
-              Acesso de Teste (Demo)
-            </Button>
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4 text-center pb-8 pt-2">
-          <p className="text-[10px] text-muted-foreground px-8 leading-relaxed">
-            O Modo de Teste permite navegar no sistema sem configurar o Firebase. 
-            Para uso real, insira as chaves em src/firebase/config.ts.
-          </p>
+        <CardFooter className="flex flex-col gap-4">
+          <Alert className="bg-primary/5 border-primary/20">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            <AlertTitle className="text-xs font-bold text-primary">Conta Admin de Teste</AlertTitle>
+            <AlertDescription className="text-[10px] text-muted-foreground">
+              E-mail: <code className="bg-primary/10 px-1 rounded">admin@flowpdf.com</code><br/>
+              Senha: <code className="bg-primary/10 px-1 rounded">admin123</code>
+            </AlertDescription>
+          </Alert>
         </CardFooter>
       </Card>
     </div>
