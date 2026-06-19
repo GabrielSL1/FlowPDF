@@ -16,10 +16,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Mail, Lock, User as UserIcon, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, User as UserIcon, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { firebaseConfig } from '@/firebase/config';
 
 export default function LoginPage() {
   const { user, loading } = useUser();
@@ -31,10 +30,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Verificação de configuração pendente
-  const isConfigPending = firebaseConfig.apiKey.includes("COLE_SUA_API_KEY");
 
   useEffect(() => {
     if (user && !loading) {
@@ -43,37 +38,32 @@ export default function LoginPage() {
   }, [user, loading, router]);
 
   const handleFirebaseError = (error: any) => {
-    console.error("Auth Error Detail:", error);
     let message = "Ocorreu um erro inesperado.";
     
-    if (error.code === 'auth/api-key-not-valid' || isConfigPending) {
-      message = "Configuração Necessária: A API Key no arquivo src/firebase/config.ts ainda não foi preenchida ou é inválida. Verifique o Console do Firebase.";
-    } else {
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          message = "Este e-mail já está em uso por outra conta.";
-          break;
-        case 'auth/invalid-email':
-          message = "O endereço de e-mail não é válido.";
-          break;
-        case 'auth/weak-password':
-          message = "A senha é muito fraca. Use pelo menos 6 caracteres.";
-          break;
-        case 'auth/wrong-password':
-          message = "Senha incorreta.";
-          break;
-        case 'auth/user-not-found':
-          message = "Não existe nenhuma conta com este e-mail.";
-          break;
-        case 'auth/operation-not-allowed':
-          message = "O método de login (E-mail ou Google) não está ativado no Console do Firebase.";
-          break;
-        default:
-          message = error.message || "Falha na autenticação.";
-      }
+    switch (error.code) {
+      case 'auth/email-already-in-use':
+        message = "Este e-mail já está em uso por outra conta.";
+        break;
+      case 'auth/invalid-email':
+        message = "O endereço de e-mail não é válido.";
+        break;
+      case 'auth/weak-password':
+        message = "A senha é muito fraca. Use pelo menos 6 caracteres.";
+        break;
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        message = "E-mail ou senha incorretos.";
+        break;
+      case 'auth/user-not-found':
+        message = "Não existe nenhuma conta com este e-mail.";
+        break;
+      case 'auth/popup-closed-by-user':
+        message = "O login com Google foi cancelado.";
+        break;
+      default:
+        message = error.message || "Falha na autenticação.";
     }
     
-    setErrorMessage(message);
     toast({
       variant: "destructive",
       title: "Erro de Acesso",
@@ -82,11 +72,6 @@ export default function LoginPage() {
   };
 
   const handleEmailAuth = async (mode: 'login' | 'signup') => {
-    if (isConfigPending) {
-      handleFirebaseError({ code: 'auth/api-key-not-valid' });
-      return;
-    }
-
     if (!email || !password) {
       toast({
         variant: "destructive",
@@ -97,7 +82,6 @@ export default function LoginPage() {
     }
 
     setAuthLoading(true);
-    setErrorMessage(null);
     
     try {
       if (!auth) throw new Error("Firebase não inicializado corretamente.");
@@ -129,12 +113,8 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
-    if (!auth || isConfigPending) {
-      handleFirebaseError({ code: 'auth/api-key-not-valid' });
-      return;
-    }
+    if (!auth) return;
     setAuthLoading(true);
-    setErrorMessage(null);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
@@ -173,16 +153,6 @@ export default function LoginPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {errorMessage && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Configuração do Sistema</AlertTitle>
-              <AlertDescription className="text-xs leading-relaxed">
-                {errorMessage}
-              </AlertDescription>
-            </Alert>
-          )}
-
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Entrar</TabsTrigger>

@@ -1,18 +1,14 @@
 
 /**
- * Configuração do Firebase.
- * 
- * Siga os passos abaixo para obter suas chaves reais:
- * 1. Vá para o Console do Firebase > Configurações do Projeto.
- * 2. Em "Seus Aplicativos", selecione o app Web (ícone </>).
- * 3. Copie os valores e substitua os campos abaixo.
+ * Configuração oficial do Firebase para o projeto studio-8106062556-31bc0.
+ * As chaves abaixo são injetadas automaticamente pelo ambiente.
  */
 
 export const firebaseConfig = {
-  apiKey: "COLE_SUA_API_KEY_AQUI", 
-  authDomain: "flowpdf-prototype.firebaseapp.com",
-  projectId: "flowpdf-prototype",
-  storageBucket: "flowpdf-prototype.appspot.com",
-  messagingSenderId: "SEU_MESSAGING_SENDER_ID",
-  appId: "SEU_APP_ID"
+  apiKey: "env-api-key",
+  authDomain: "studio-8106062556-31bc0.firebaseapp.com",
+  projectId: "studio-8106062556-31bc0",
+  storageBucket: "studio-8106062556-31bc0.firebasestorage.app",
+  messagingSenderId: "env-messaging-sender-id",
+  appId: "env-app-id"
 };
