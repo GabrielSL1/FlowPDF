@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import { useFlowPDF } from '@/lib/store';
+import { useStorage, useUser } from '@/firebase';
 import { 
   Dialog, 
   DialogContent, 
@@ -11,21 +12,24 @@ import {
   DialogTrigger 
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Upload, X, FileText, Loader2 } from 'lucide-react';
+import { Upload, FileText, Loader2 } from 'lucide-react';
 import { tagDocument } from '@/ai/flows/ai-document-tagging';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 export function UploadModal() {
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const { addDocument, state } = useFlowPDF();
+  const { user } = useUser();
+  const storage = useStorage();
   const { toast } = useToast();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !user || !storage) return;
 
     if (file.type !== 'application/pdf') {
       toast({
@@ -37,51 +41,65 @@ export function UploadModal() {
     }
 
     setUploading(true);
-    setProgress(10);
+    setProgress(0);
 
     try {
-      // Simulação de progresso de upload
-      const interval = setInterval(() => {
-        setProgress(p => (p < 80 ? p + 10 : p));
-      }, 400);
+      // 1. Criar referência no Storage (Pasta do usuário / nome do arquivo)
+      const storageRef = ref(storage, `users/${user.uid}/documents/${Date.now()}_${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
 
-      // Análise de IA
-      const aiResults = await tagDocument({ 
-        documentContent: `Documento intitulado ${file.name}. Extração simulada para FlowPDF.`
-      });
+      // 2. Monitorar progresso do upload físico
+      uploadTask.on('state_changed', 
+        (snapshot) => {
+          const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          setProgress(percent * 0.7); // 70% do progresso é o upload, 30% é a IA
+        }, 
+        (error) => {
+          throw error;
+        },
+        async () => {
+          // 3. Upload concluído, pegar URL
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          
+          // 4. Análise de IA (Simulada com conteúdo base para economizar tokens, 
+          // em produção você extrairia o texto do PDF)
+          setProgress(85);
+          const aiResults = await tagDocument({ 
+            documentContent: `Documento: ${file.name}. Tamanho: ${file.size} bytes.`
+          });
 
-      clearInterval(interval);
-      setProgress(100);
+          // 5. Salvar no Firestore com a URL real
+          await addDocument({
+            name: file.name,
+            url: downloadURL,
+            thumbnailUrl: `https://picsum.photos/seed/${file.name}/300/400`,
+            size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+            uploadDate: new Date().toISOString(),
+            type: 'pdf' as const,
+            tags: aiResults.tags,
+            keywords: aiResults.keywords,
+            folderId: state.currentFolderId,
+          });
 
-      // Salva no Firebase Firestore
-      await addDocument({
-        name: file.name,
-        url: '#', // Em produção, aqui iria a URL do Firebase Storage
-        thumbnailUrl: `https://picsum.photos/seed/${file.name}/300/400`,
-        size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
-        uploadDate: new Date().toISOString(),
-        type: 'pdf' as const,
-        tags: aiResults.tags,
-        keywords: aiResults.keywords,
-        folderId: state.currentFolderId,
-      });
-      
-      setTimeout(() => {
-        setUploading(false);
-        setOpen(false);
-        setProgress(0);
-        toast({
-          title: "Upload concluído",
-          description: `${file.name} foi salvo no Firebase e tagueado pela IA.`,
-        });
-      }, 800);
+          setProgress(100);
+          setTimeout(() => {
+            setUploading(false);
+            setOpen(false);
+            setProgress(0);
+            toast({
+              title: "Documento Sincronizado",
+              description: `${file.name} foi armazenado e analisado com sucesso.`,
+            });
+          }, 500);
+        }
+      );
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       setUploading(false);
       toast({
         title: "Erro no upload",
-        description: "Algo deu errado ao processar o documento no Firebase.",
+        description: error.message || "Algo deu errado ao processar o documento no Firebase.",
         variant: "destructive"
       });
     }
@@ -96,7 +114,7 @@ export function UploadModal() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Enviar Documento para o Firebase</DialogTitle>
+          <DialogTitle>Enviar para o Cloud Storage</DialogTitle>
         </DialogHeader>
         
         <div className="grid gap-6 py-4">
@@ -112,8 +130,8 @@ export function UploadModal() {
                 <Upload className="w-8 h-8" />
               </div>
               <div className="text-center">
-                <p className="font-medium">Clique para enviar para o Cloud</p>
-                <p className="text-sm text-muted-foreground mt-1">Sincronização automática via Firebase</p>
+                <p className="font-medium">Clique para selecionar o PDF</p>
+                <p className="text-sm text-muted-foreground mt-1">O arquivo será armazenado com segurança</p>
               </div>
             </div>
           ) : (
@@ -124,8 +142,8 @@ export function UploadModal() {
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between mb-1">
-                    <span className="text-sm font-medium">Processando no Firebase...</span>
-                    <span className="text-xs text-muted-foreground">{progress}%</span>
+                    <span className="text-sm font-medium">Sincronizando no Cloud...</span>
+                    <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
                   </div>
                   <Progress value={progress} className="h-2" />
                 </div>
