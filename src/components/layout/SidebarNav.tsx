@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useFlowPDF } from '@/lib/store';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -24,12 +24,25 @@ import {
 } from "@/components/ui/collapsible";
 import { Folder } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function SidebarNav() {
   const { state, setCurrentFolder, addFolder, deleteFolder } = useFlowPDF();
   const auth = useAuth();
   const { toast } = useToast();
   
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [parentFolderId, setParentFolderId] = useState<string | null>(null);
+
   const rootFolders = state.folders.filter(f => f.parentId === null);
 
   const handleLogout = async () => {
@@ -42,15 +55,19 @@ export function SidebarNav() {
     window.location.href = '/login';
   };
 
-  const handleAddRootFolder = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const name = window.prompt('Nome da nova pasta raiz:');
-    if (name && name.trim()) {
-      addFolder(name.trim(), null);
+  const openNewFolderDialog = (parentId: string | null) => {
+    setParentFolderId(parentId);
+    setNewFolderName("");
+    setIsDialogOpen(true);
+  };
+
+  const handleCreateFolder = () => {
+    if (newFolderName.trim()) {
+      addFolder(newFolderName.trim(), parentFolderId);
+      setIsDialogOpen(false);
       toast({
         title: "Pasta criada",
-        description: `A pasta "${name.trim()}" foi criada com sucesso.`,
+        description: `A pasta "${newFolderName.trim()}" foi criada com sucesso.`,
       });
     }
   };
@@ -84,7 +101,11 @@ export function SidebarNav() {
               variant="ghost" 
               size="icon" 
               className="h-5 w-5 hover:bg-sidebar-accent rounded-full"
-              onClick={handleAddRootFolder}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openNewFolderDialog(null);
+              }}
             >
               <Plus className="w-3 h-3" />
             </Button>
@@ -99,7 +120,7 @@ export function SidebarNav() {
                 currentFolderId={state.currentFolderId}
                 onSelect={setCurrentFolder}
                 onDelete={deleteFolder}
-                onAddSubfolder={addFolder}
+                onAddSubfolder={openNewFolderDialog}
               />
             ))}
           </div>
@@ -127,6 +148,34 @@ export function SidebarNav() {
           Sair do Sistema
         </Button>
       </div>
+
+      {/* Dialog for New Folder */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{parentFolderId ? 'Criar Subpasta' : 'Nova Pasta Raiz'}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="folder-name">Nome da pasta</Label>
+              <Input
+                id="folder-name"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="Ex: Documentos 2024"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateFolder();
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>Criar Pasta</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -144,7 +193,7 @@ function FolderItem({
   currentFolderId: string | null;
   onSelect: (id: string | null) => void;
   onDelete: (id: string) => void;
-  onAddSubfolder: (name: string, parentId: string) => void;
+  onAddSubfolder: (parentId: string) => void;
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const { toast } = useToast();
@@ -154,21 +203,14 @@ function FolderItem({
   const handleAddChild = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const name = window.prompt(`Nova subpasta em "${folder.name}":`);
-    if (name && name.trim()) {
-      onAddSubfolder(name.trim(), folder.id);
-      setIsOpen(true);
-      toast({
-        title: "Subpasta criada",
-        description: `Subpasta "${name.trim()}" adicionada a ${folder.name}.`,
-      });
-    }
+    onAddSubfolder(folder.id);
+    setIsOpen(true);
   };
 
   const handleDelete = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (window.confirm(`Tem certeza que deseja excluir a pasta "${folder.name}" e todo seu conteúdo?`)) {
+    if (confirm(`Excluir a pasta "${folder.name}" e todo seu conteúdo?`)) {
       onDelete(folder.id);
       toast({
         title: "Pasta excluída",

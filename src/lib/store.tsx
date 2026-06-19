@@ -58,8 +58,8 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   const addFolder = useCallback((name: string, parentId: string | null) => {
     setState(prev => {
       const newFolder: Folder = {
-        id: Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
-        name,
+        id: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
+        name: name.trim(),
         parentId,
         createdAt: new Date().toISOString(),
       };
@@ -73,16 +73,16 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   const deleteFolder = useCallback((id: string) => {
     setState(prev => {
       // Coletar todos os IDs de pastas que devem ser removidas (recursivamente)
-      const getChildIds = (parentId: string): string[] => {
-        const children = prev.folders.filter(f => f.parentId === parentId);
+      const findChildIds = (parentId: string, allFolders: Folder[]): string[] => {
+        const children = allFolders.filter(f => f.parentId === parentId);
         let ids = children.map(c => c.id);
         children.forEach(c => {
-          ids = [...ids, ...getChildIds(c.id)];
+          ids = [...ids, ...findChildIds(c.id, allFolders)];
         });
         return ids;
       };
 
-      const idsToRemove = [id, ...getChildIds(id)];
+      const idsToRemove = [id, ...findChildIds(id, prev.folders)];
 
       return {
         ...prev,
@@ -112,7 +112,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, searchQuery: query }));
   }, []);
 
-  const value = useMemo(() => ({
+  const contextValue = useMemo(() => ({
     state,
     addFolder,
     deleteFolder,
@@ -123,7 +123,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   }), [state, addFolder, deleteFolder, addDocument, deleteDocument, setCurrentFolder, setSearchQuery]);
 
   return (
-    <FlowPDFContext.Provider value={value}>
+    <FlowPDFContext.Provider value={contextValue}>
       {children}
     </FlowPDFContext.Provider>
   );
