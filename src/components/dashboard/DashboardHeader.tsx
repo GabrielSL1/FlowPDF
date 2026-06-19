@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { query, collection, where, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
+import { query, collection, where, limit, doc, updateDoc } from 'firebase/firestore';
 import { Notification } from '@/lib/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -34,18 +34,26 @@ export function DashboardHeader() {
   const router = useRouter();
   const [showSettings, setShowSettings] = useState(false);
   
-  // Buscar notificações em tempo real
+  // Buscar notificações (removido orderBy para evitar erro de índice no Firestore)
   const notificationsQuery = useMemo(() => 
     user ? query(
       collection(db, 'notifications'), 
       where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc'),
-      limit(5)
+      limit(20)
     ) : null
   , [db, user]);
 
-  const { data: notifications } = useCollection<Notification>(notificationsQuery);
-  const unreadCount = notifications?.filter(n => !n.read).length || 0;
+  const { data: notificationsData } = useCollection<Notification>(notificationsQuery);
+  
+  // Ordenar no cliente para garantir que o sistema funcione sem índices manuais
+  const notifications = useMemo(() => {
+    if (!notificationsData) return [];
+    return [...notificationsData].sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    ).slice(0, 5);
+  }, [notificationsData]);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleMarkAsRead = async (id: string) => {
     try {
@@ -105,7 +113,7 @@ export function DashboardHeader() {
                 {unreadCount > 0 && <span className="text-[10px] bg-accent/10 text-accent px-2 py-0.5 rounded-full font-bold">{unreadCount} novas</span>}
               </div>
               <div className="max-h-80 overflow-y-auto">
-                {notifications && notifications.length > 0 ? (
+                {notifications.length > 0 ? (
                   notifications.map((n) => (
                     <div 
                       key={n.id} 
