@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "User": {
@@ -15,6 +14,6 @@
     }
   },
   "auth": {
-    "providers": ["google.com"]
+    "providers": ["google.com", "password"]
   }
 }
