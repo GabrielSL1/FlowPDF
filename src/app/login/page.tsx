@@ -60,6 +60,9 @@ export default function LoginPage() {
       case 'auth/popup-closed-by-user':
         message = "O login com Google foi cancelado.";
         break;
+      case 'auth/api-key-not-valid':
+        message = "A chave do Firebase ainda está sendo validada. Aguarde 30 segundos e tente novamente.";
+        break;
       default:
         message = error.message || "Falha na autenticação.";
     }
