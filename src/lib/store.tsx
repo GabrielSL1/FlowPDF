@@ -106,18 +106,16 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, searchQuery: query }));
   }, []);
 
-  const value = {
-    state,
-    addFolder,
-    deleteFolder,
-    addDocument,
-    deleteDocument,
-    setCurrentFolder,
-    setSearchQuery
-  };
-
   return (
-    <FlowPDFContext.Provider value={value}>
+    <FlowPDFContext.Provider value={{
+      state,
+      addFolder,
+      deleteFolder,
+      addDocument,
+      deleteDocument,
+      setCurrentFolder,
+      setSearchQuery
+    }}>
       {children}
     </FlowPDFContext.Provider>
   );

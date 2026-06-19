@@ -41,7 +41,7 @@ export function SidebarNav() {
   };
 
   const handleAddRootFolder = () => {
-    const name = prompt('Nome da nova pasta raiz:');
+    const name = window.prompt('Nome da nova pasta raiz:');
     if (name && name.trim()) {
       addFolder(name.trim(), null);
     }
@@ -144,7 +144,7 @@ function FolderItem({
 
   const handleAddChild = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const name = prompt(`Nova subpasta em "${folder.name}":`);
+    const name = window.prompt(`Nova subpasta em "${folder.name}":`);
     if (name && name.trim()) {
       onAddSubfolder(name.trim(), folder.id);
       setIsOpen(true);
@@ -153,7 +153,7 @@ function FolderItem({
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm(`Tem certeza que deseja excluir a pasta "${folder.name}" e todo seu conteúdo?`)) {
+    if (window.confirm(`Tem certeza que deseja excluir a pasta "${folder.name}" e todo seu conteúdo?`)) {
       onDelete(folder.id);
     }
   };
