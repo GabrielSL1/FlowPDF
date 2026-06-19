@@ -1,7 +1,6 @@
 
 /**
  * Configuração oficial do Firebase para o projeto studio-8106062556-31bc0.
- * Estas credenciais são públicas e seguras para serem incluídas no código cliente.
  */
 
 export const firebaseConfig = {
