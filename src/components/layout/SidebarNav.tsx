@@ -40,9 +40,16 @@ export function SidebarNav() {
     window.location.href = '/login';
   };
 
+  const handleAddRootFolder = () => {
+    const name = prompt('Nome da nova pasta raiz:');
+    if (name && name.trim()) {
+      addFolder(name.trim(), null);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full text-sidebar-foreground">
-      <div className="p-6 flex-1">
+      <div className="p-6 flex-1 overflow-y-auto">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground font-bold text-xl font-headline">
             F
@@ -68,11 +75,8 @@ export function SidebarNav() {
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-5 w-5 hover:bg-sidebar-accent"
-              onClick={() => {
-                const name = prompt('Nome da nova pasta raiz:');
-                if (name) addFolder(name, null);
-              }}
+              className="h-5 w-5 hover:bg-sidebar-accent rounded-full"
+              onClick={handleAddRootFolder}
             >
               <Plus className="w-3 h-3" />
             </Button>
@@ -87,17 +91,14 @@ export function SidebarNav() {
                 currentFolderId={state.currentFolderId}
                 onSelect={setCurrentFolder}
                 onDelete={deleteFolder}
-                onAddSubfolder={(parentId) => {
-                  const name = prompt('Nome da subpasta:');
-                  if (name) addFolder(name, parentId);
-                }}
+                onAddSubfolder={addFolder}
               />
             ))}
           </div>
         </nav>
       </div>
 
-      <div className="p-6 space-y-4">
+      <div className="p-6 space-y-4 shrink-0 bg-primary/95">
         <div className="bg-sidebar-accent/40 rounded-xl p-4 border border-sidebar-border/30">
           <div className="flex items-center gap-2 mb-2">
             <HardDrive className="w-4 h-4 text-accent" />
@@ -135,24 +136,40 @@ function FolderItem({
   currentFolderId: string | null;
   onSelect: (id: string | null) => void;
   onDelete: (id: string) => void;
-  onAddSubfolder: (id: string) => void;
+  onAddSubfolder: (name: string, parentId: string) => void;
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const children = allFolders.filter(f => f.parentId === folder.id);
   const isActive = currentFolderId === folder.id;
 
+  const handleAddChild = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const name = prompt(`Nova subpasta em "${folder.name}":`);
+    if (name && name.trim()) {
+      onAddSubfolder(name.trim(), folder.id);
+      setIsOpen(true);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`Tem certeza que deseja excluir a pasta "${folder.name}" e todo seu conteúdo?`)) {
+      onDelete(folder.id);
+    }
+  };
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div className="group flex items-center pr-2">
+      <div className="group flex items-center pr-1">
         <CollapsibleTrigger asChild>
           <Button 
             variant="ghost" 
-            className="p-1 h-7 w-7 hover:bg-sidebar-accent shrink-0"
-            disabled={children.length === 0}
-          >
-            {children.length > 0 && (
-              isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
+            className={cn(
+              "p-0 h-7 w-6 hover:bg-sidebar-accent shrink-0",
+              children.length === 0 && "opacity-0 pointer-events-none"
             )}
+          >
+            {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </Button>
         </CollapsibleTrigger>
         <Button
@@ -167,31 +184,22 @@ function FolderItem({
           <span className="truncate">{folder.name}</span>
         </Button>
         
-        <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 ml-1 transition-opacity">
+        <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-6 w-6 hover:bg-sidebar-accent" 
+            className="h-6 w-6 hover:bg-sidebar-accent rounded-full" 
             title="Adicionar subpasta"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddSubfolder(folder.id);
-              setIsOpen(true);
-            }}
+            onClick={handleAddChild}
           >
             <Plus className="w-3 h-3" />
           </Button>
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-6 w-6 text-destructive/70 hover:text-destructive hover:bg-destructive/10" 
+            className="h-6 w-6 text-white/50 hover:text-destructive hover:bg-destructive/20 rounded-full" 
             title="Excluir pasta"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (confirm(`Tem certeza que deseja excluir a pasta "${folder.name}" e todo seu conteúdo?`)) {
-                onDelete(folder.id);
-              }
-            }}
+            onClick={handleDelete}
           >
             <Trash2 className="w-3 h-3" />
           </Button>
@@ -199,7 +207,7 @@ function FolderItem({
       </div>
       
       {children.length > 0 && (
-        <CollapsibleContent className="pl-6 border-l border-sidebar-border/30 ml-3.5 space-y-1 mt-1">
+        <CollapsibleContent className="pl-4 border-l border-sidebar-border/30 ml-3 space-y-1 mt-1">
           {children.map(child => (
             <FolderItem 
               key={child.id} 

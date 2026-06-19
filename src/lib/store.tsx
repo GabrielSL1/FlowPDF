@@ -67,7 +67,6 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
 
   const deleteFolder = useCallback((id: string) => {
     setState(prev => {
-      // Função recursiva para encontrar todos os IDs de subpastas
       const getAllChildIds = (parentId: string, folders: Folder[]): string[] => {
         const children = folders.filter(f => f.parentId === parentId);
         let ids = children.map(c => c.id);
