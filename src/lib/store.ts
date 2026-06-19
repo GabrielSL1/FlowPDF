@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState } from 'react';
@@ -22,24 +23,24 @@ const INITIAL_FOLDERS: Folder[] = [
 const INITIAL_DOCS: Document[] = [
   {
     id: 'd1',
-    name: 'Annual Report 2023.pdf',
-    url: '#',
+    name: 'Relatório Anual 2023.pdf',
+    url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
     size: '2.4 MB',
     uploadDate: new Date().toISOString(),
     type: 'pdf',
-    tags: ['Financial', 'Annual'],
-    keywords: ['report', 'revenue', 'growth'],
+    tags: ['Financeiro', 'Anual'],
+    keywords: ['relatório', 'receita', 'crescimento'],
     folderId: '1',
   },
   {
     id: 'd2',
-    name: 'Service Agreement.pdf',
-    url: '#',
+    name: 'Contrato de Prestação de Serviço.pdf',
+    url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
     size: '1.1 MB',
     uploadDate: new Date().toISOString(),
     type: 'pdf',
-    tags: ['Legal', 'Contract'],
-    keywords: ['service', 'terms'],
+    tags: ['Jurídico', 'Contrato'],
+    keywords: ['serviço', 'termos'],
     folderId: '2',
   }
 ];
