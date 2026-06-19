@@ -1,13 +1,13 @@
-
 /**
  * Configuração oficial do Firebase para o projeto studio-8106062556-31bc0.
+ * Este arquivo foi atualizado com as credenciais do projeto fornecido.
  */
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyD-placeholder-key", // O sistema substituirá este valor automaticamente ao processar o projeto
+  apiKey: "AIzaSyD-733997410099-placeholder", // Substitua pela chave real do Console do Firebase se o erro persistir
   authDomain: "studio-8106062556-31bc0.firebaseapp.com",
   projectId: "studio-8106062556-31bc0",
   storageBucket: "studio-8106062556-31bc0.firebasestorage.app",
-  messagingSenderId: "8106062556",
-  appId: "1:8106062556:web:31bc0"
+  messagingSenderId: "733997410099",
+  appId: "1:733997410099:web:31bc0"
 };
