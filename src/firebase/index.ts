@@ -7,7 +7,7 @@ import { getAuth, Auth } from 'firebase/auth';
 import { firebaseConfig } from './config';
 
 export function initializeFirebase(): { app: FirebaseApp, firestore: Firestore, auth: Auth } {
-  // Inicializa o Firebase. Se já houver um app inicializado, usa ele.
+  // Inicializa o Firebase garantindo que não haja duplicidade e usando a config mais recente
   const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
   const firestore = getFirestore(app);
   const auth = getAuth(app);
