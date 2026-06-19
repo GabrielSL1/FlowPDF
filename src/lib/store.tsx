@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
@@ -24,6 +25,7 @@ const INITIAL_DOCS: Document[] = [
     id: 'd1',
     name: 'Relatório Anual 2023.pdf',
     url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    thumbnailUrl: 'https://picsum.photos/seed/d1/300/400',
     size: '2.4 MB',
     uploadDate: new Date().toISOString(),
     type: 'pdf',
@@ -35,6 +37,7 @@ const INITIAL_DOCS: Document[] = [
     id: 'd2',
     name: 'Contrato de Prestação de Serviço.pdf',
     url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    thumbnailUrl: 'https://picsum.photos/seed/d2/300/400',
     size: '1.1 MB',
     uploadDate: new Date().toISOString(),
     type: 'pdf',
@@ -71,7 +74,6 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
 
   const deleteFolder = useCallback((id: string) => {
     setState(prev => {
-      // Função recursiva para encontrar todos os IDs de subpastas
       const getAllChildIds = (parentId: string, allFolders: Folder[]): string[] => {
         const children = allFolders.filter(f => f.parentId === parentId);
         let ids = children.map(c => c.id);

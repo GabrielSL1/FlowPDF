@@ -3,6 +3,7 @@ export interface Document {
   id: string;
   name: string;
   url: string;
+  thumbnailUrl?: string;
   size: string;
   uploadDate: string;
   type: 'pdf';

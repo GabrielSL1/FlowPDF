@@ -49,52 +49,55 @@ export function DocumentGrid() {
           onClick={() => setViewingDoc(doc.id)}
         >
           <CardContent className="p-0">
-            <div className="aspect-[4/3] bg-muted/30 relative group-hover:bg-muted/50 transition-colors overflow-hidden border-b">
-              {/* PDF Preview Simulation */}
-              <div className="absolute inset-0 p-4 flex items-center justify-center">
-                <div className="w-28 h-36 bg-white shadow-lg rounded-sm border border-border/50 relative overflow-hidden transform transition-transform group-hover:scale-105">
+            <div className="aspect-[4/5] bg-muted/30 relative group-hover:bg-muted/50 transition-colors overflow-hidden border-b">
+              {/* PDF Preview Container */}
+              <div className="absolute inset-0 p-4 flex items-center justify-center bg-gray-50/50">
+                <div className="w-[85%] h-[90%] bg-white shadow-2xl rounded-sm border border-border/40 relative overflow-hidden transform transition-all group-hover:scale-[1.02] group-hover:-translate-y-1">
                   <Image 
-                    src={`https://picsum.photos/seed/${doc.id}/300/400`}
-                    alt="PDF Preview"
+                    src={doc.thumbnailUrl || `https://picsum.photos/seed/${doc.id}/300/400`}
+                    alt={doc.name}
                     fill
-                    className="object-cover opacity-80"
+                    className="object-cover opacity-90 group-hover:opacity-100 transition-opacity"
                     data-ai-hint="document paper"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                  <div className="absolute top-0 right-0 w-6 h-6 bg-white/90 border-l border-b border-border/50 rounded-bl-sm flex items-center justify-center">
-                    <div className="w-0 h-0 border-t-[12px] border-t-primary/20 border-r-[12px] border-r-transparent" />
+                  {/* Visual Paper Texture & Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-tr from-black/5 via-transparent to-white/10" />
+                  <div className="absolute top-0 right-0 w-8 h-8 bg-white/40 backdrop-blur-sm border-l border-b border-black/5 rounded-bl-sm flex items-center justify-center">
+                    <div className="w-0 h-0 border-t-[14px] border-t-primary/10 border-r-[14px] border-r-transparent" />
                   </div>
                 </div>
               </div>
 
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={(e) => e.stopPropagation()}>
+              {/* Actions Overlay */}
+              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" size="icon" className="h-8 w-8 bg-white/90 backdrop-blur-sm shadow-sm hover:bg-white">
+                    <Button variant="secondary" size="icon" className="h-9 w-9 bg-white/95 backdrop-blur-sm shadow-md hover:bg-white border-none">
                       <MoreVertical className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuContent align="end" className="w-48 shadow-xl">
                     <DropdownMenuItem onClick={() => setViewingDoc(doc.id)}>
                       <Eye className="w-4 h-4 mr-2" /> Visualizar
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => window.open(doc.url, '_blank')}>
                       <ExternalLink className="w-4 h-4 mr-2" /> Abrir Original
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive" onClick={() => deleteDocument(doc.id)}>
+                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteDocument(doc.id)}>
                       <Trash2 className="w-4 h-4 mr-2" /> Excluir
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             </div>
-            <div className="p-4">
+
+            <div className="p-4 bg-white relative">
               <div className="flex items-start justify-between gap-2 mb-1">
-                <h3 className="font-semibold text-sm truncate flex-1 text-foreground" title={doc.name}>{doc.name}</h3>
-                <FileText className="w-4 h-4 text-primary shrink-0 opacity-50" />
+                <h3 className="font-bold text-sm truncate flex-1 text-foreground/90 leading-tight" title={doc.name}>{doc.name}</h3>
               </div>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground mb-3 font-medium">
-                <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase">{doc.type}</span>
+              
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground mb-3 font-semibold">
+                <span className="bg-primary/5 text-primary px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">PDF</span>
                 <span>•</span>
                 <span>{doc.size}</span>
                 <span>•</span>
@@ -102,14 +105,14 @@ export function DocumentGrid() {
               </div>
               
               {doc.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {doc.tags.slice(0, 3).map((tag, i) => (
-                    <Badge key={i} variant="secondary" className="text-[9px] px-1.5 py-0 bg-primary/5 text-primary border-none font-medium">
+                <div className="flex flex-wrap gap-1.5">
+                  {doc.tags.slice(0, 2).map((tag, i) => (
+                    <Badge key={i} variant="secondary" className="text-[9px] px-2 py-0 bg-accent/5 text-accent border-none font-bold uppercase tracking-widest">
                       {tag}
                     </Badge>
                   ))}
-                  {doc.tags.length > 3 && (
-                    <span className="text-[9px] text-muted-foreground">+{doc.tags.length - 3}</span>
+                  {doc.tags.length > 2 && (
+                    <span className="text-[9px] font-bold text-muted-foreground/60">+{doc.tags.length - 2}</span>
                   )}
                 </div>
               )}

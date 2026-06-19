@@ -40,12 +40,10 @@ export function UploadModal() {
     setProgress(10);
 
     try {
-      // Simulate file upload progress
       const interval = setInterval(() => {
         setProgress(p => (p < 90 ? p + 10 : p));
       }, 500);
 
-      // AI Analysis
       const aiResults = await tagDocument({ 
         documentContent: `Documento intitulado ${file.name}. Extração simulada para FlowPDF.`
       });
@@ -53,10 +51,12 @@ export function UploadModal() {
       clearInterval(interval);
       setProgress(100);
 
+      const docId = Math.random().toString(36).substr(2, 9);
       const newDoc = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: docId,
         name: file.name,
         url: URL.createObjectURL(file),
+        thumbnailUrl: `https://picsum.photos/seed/${file.name}/300/400`,
         size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
         uploadDate: new Date().toISOString(),
         type: 'pdf' as const,
