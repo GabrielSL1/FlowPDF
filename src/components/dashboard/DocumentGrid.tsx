@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { useFlowPDF } from '@/lib/store';
-import { FileText, MoreVertical, Trash2, Eye, Download, ExternalLink } from 'lucide-react';
+import { FileText, MoreVertical, Trash2, Eye, ExternalLink } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -49,23 +49,43 @@ export function DocumentGrid() {
           onClick={() => setViewingDoc(doc.id)}
         >
           <CardContent className="p-0">
-            <div className="aspect-[4/5] bg-muted/30 relative group-hover:bg-muted/50 transition-colors overflow-hidden border-b">
-              {/* PDF Preview Container */}
-              <div className="absolute inset-0 p-4 flex items-center justify-center bg-gray-50/50">
-                <div className="w-[85%] h-[90%] bg-white shadow-2xl rounded-sm border border-border/40 relative overflow-hidden transform transition-all group-hover:scale-[1.02] group-hover:-translate-y-1">
+            <div className="aspect-[4/5] bg-slate-100/50 relative group-hover:bg-slate-200/50 transition-colors overflow-hidden border-b flex items-center justify-center p-6">
+              
+              {/* PDF Preview: Styled as a physical Paper */}
+              <div className="w-full h-full bg-white shadow-lg rounded-sm border border-border/40 relative overflow-hidden transform transition-all group-hover:scale-[1.02] group-hover:-translate-y-1 flex flex-col">
+                
+                {/* Visual Header of the Paper */}
+                <div className="h-4 w-full bg-slate-50 border-b border-slate-100 flex items-center px-2 gap-1">
+                  <div className="w-1 h-1 rounded-full bg-slate-200" />
+                  <div className="w-1 h-1 rounded-full bg-slate-200" />
+                </div>
+
+                {/* Simulated Content/Thumbnail */}
+                <div className="flex-1 relative">
                   <Image 
                     src={doc.thumbnailUrl || `https://picsum.photos/seed/${doc.id}/300/400`}
                     alt={doc.name}
                     width={300}
                     height={400}
-                    className="object-cover opacity-90 group-hover:opacity-100 transition-opacity w-full h-full"
+                    className="object-cover opacity-80 mix-blend-multiply grayscale-[20%] group-hover:opacity-100 transition-opacity w-full h-full"
                     data-ai-hint="document paper"
                   />
-                  {/* Visual Paper Texture & Gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-black/5 via-transparent to-white/10" />
-                  <div className="absolute top-0 right-0 w-8 h-8 bg-white/40 backdrop-blur-sm border-l border-b border-black/5 rounded-bl-sm flex items-center justify-center">
-                    <div className="w-0 h-0 border-t-[14px] border-t-primary/10 border-r-[14px] border-r-transparent" />
+                  
+                  {/* Subtle Text Lines Overlay (Simulated Preview Effect) */}
+                  <div className="absolute inset-0 p-4 space-y-3 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
+                    <div className="h-2 w-3/4 bg-slate-200 rounded-full" />
+                    <div className="h-2 w-1/2 bg-slate-200 rounded-full" />
+                    <div className="h-2 w-full bg-slate-100 rounded-full" />
+                    <div className="h-2 w-2/3 bg-slate-100 rounded-full" />
                   </div>
+                </div>
+
+                {/* Paper Texture and Lighting */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-black/5 via-transparent to-white/10 pointer-events-none" />
+                
+                {/* Corner Fold Visual */}
+                <div className="absolute top-0 right-0 w-6 h-6 bg-white/60 backdrop-blur-sm border-l border-b border-black/5 rounded-bl-sm flex items-center justify-center pointer-events-none">
+                   <div className="w-0 h-0 border-t-[10px] border-t-slate-200 border-r-[10px] border-r-transparent" />
                 </div>
               </div>
 
@@ -73,7 +93,7 @@ export function DocumentGrid() {
               <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" size="icon" className="h-9 w-9 bg-white/95 backdrop-blur-sm shadow-md hover:bg-white border-none">
+                    <Button variant="secondary" size="icon" className="h-8 w-8 bg-white/95 backdrop-blur-sm shadow-md hover:bg-white border-none">
                       <MoreVertical className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
