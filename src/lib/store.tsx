@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { Document, Folder, DocuFlowState } from './types';
 
 interface FlowPDFContextType {
@@ -62,21 +61,25 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
       parentId,
       createdAt: new Date().toISOString(),
     };
-    setState(prev => ({ ...prev, folders: [...prev.folders, newFolder] }));
+    setState(prev => ({
+      ...prev,
+      folders: [...prev.folders, newFolder]
+    }));
   }, []);
 
   const deleteFolder = useCallback((id: string) => {
     setState(prev => {
-      const getAllChildIds = (parentId: string, folders: Folder[]): string[] => {
-        const children = folders.filter(f => f.parentId === parentId);
+      // Função auxiliar para encontrar todos os IDs de pastas filhas recursivamente
+      const findChildFolderIds = (parentId: string, allFolders: Folder[]): string[] => {
+        const children = allFolders.filter(f => f.parentId === parentId);
         let ids = children.map(c => c.id);
         children.forEach(c => {
-          ids = [...ids, ...getAllChildIds(c.id, folders)];
+          ids = [...ids, ...findChildFolderIds(c.id, allFolders)];
         });
         return ids;
       };
 
-      const idsToRemove = [id, ...getAllChildIds(id, prev.folders)];
+      const idsToRemove = [id, ...findChildFolderIds(id, prev.folders)];
 
       return {
         ...prev,
@@ -106,16 +109,18 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, searchQuery: query }));
   }, []);
 
+  const value = useMemo(() => ({
+    state,
+    addFolder,
+    deleteFolder,
+    addDocument,
+    deleteDocument,
+    setCurrentFolder,
+    setSearchQuery
+  }), [state, addFolder, deleteFolder, addDocument, deleteDocument, setCurrentFolder, setSearchQuery]);
+
   return (
-    <FlowPDFContext.Provider value={{
-      state,
-      addFolder,
-      deleteFolder,
-      addDocument,
-      deleteDocument,
-      setCurrentFolder,
-      setSearchQuery
-    }}>
+    <FlowPDFContext.Provider value={value}>
       {children}
     </FlowPDFContext.Provider>
   );

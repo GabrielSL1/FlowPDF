@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -40,7 +39,9 @@ export function SidebarNav() {
     window.location.href = '/login';
   };
 
-  const handleAddRootFolder = () => {
+  const handleAddRootFolder = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     const name = window.prompt('Nome da nova pasta raiz:');
     if (name && name.trim()) {
       addFolder(name.trim(), null);
@@ -143,6 +144,7 @@ function FolderItem({
   const isActive = currentFolderId === folder.id;
 
   const handleAddChild = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     const name = window.prompt(`Nova subpasta em "${folder.name}":`);
     if (name && name.trim()) {
@@ -152,6 +154,7 @@ function FolderItem({
   };
 
   const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     if (window.confirm(`Tem certeza que deseja excluir a pasta "${folder.name}" e todo seu conteúdo?`)) {
       onDelete(folder.id);
