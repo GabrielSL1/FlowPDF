@@ -74,7 +74,6 @@ export function UploadModal() {
       uploadTask.on('state_changed', 
         (snapshot) => {
           const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-          // Reservamos os últimos 20% para o processamento da IA e banco de dados
           setProgress(percent * 0.8);
           setStatus('Enviando para o Cloud Storage...');
         }, 
@@ -120,7 +119,7 @@ export function UploadModal() {
             const notificationData = {
               userId: user.uid,
               message: `Novo PDF "${file.name}" pronto!`,
-              type: 'upload_success',
+              type: 'upload_success' as const,
               createdAt: new Date().toISOString(),
               read: false
             };
