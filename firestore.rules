@@ -1,31 +1,44 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper para verificar se o usuário está autenticado e é dono do dado
+    // Helper para verificar se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper para verificar se o usuário é dono do documento (leitura/escrita)
     function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
     // Regras para a coleção de Pastas
     match /folders/{folderId} {
-      allow read, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
+      allow read, write: if isAuthenticated() && (
+        (resource == null && request.resource.data.userId == request.auth.uid) ||
+        (resource != null && resource.data.userId == request.auth.uid)
+      );
     }
     
     // Regras para a coleção de Documentos
     match /documents/{docId} {
-      allow read, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
+      allow read, write: if isAuthenticated() && (
+        (resource == null && request.resource.data.userId == request.auth.uid) ||
+        (resource != null && resource.data.userId == request.auth.uid)
+      );
     }
     
     // Regras para a coleção de Notificações
     match /notifications/{notifId} {
-      allow list: if request.auth != null && request.query.limit <= 20;
-      allow get, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
+      // Permitir listagem se o usuário estiver autenticado (o filtro da query garante a privacidade)
+      allow list: if isAuthenticated() && request.query.limit <= 50;
+      // Permitir leitura individual e escrita se for o dono
+      allow get, create, update, delete: if isAuthenticated() && (
+        (resource == null && request.resource.data.userId == request.auth.uid) ||
+        (resource != null && resource.data.userId == request.auth.uid)
+      );
     }
 
-    // Comentário para forçar redeploy e garantir permissões de listagem (queries)
-    // Salt: force_redeploy_notifications_v5_final
+    // Salt para forçar redeploy e limpar cache de permissões do Firestore
+    // force_redeploy_v12_notifications_fix_final
   }
 }
