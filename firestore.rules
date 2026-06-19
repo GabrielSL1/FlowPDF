@@ -1,17 +1,31 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regra genérica para coleções que possuem o campo userId
+    // Helper para verificar se o usuário está autenticado e é dono do dado
+    function isOwner(data) {
+      return request.auth != null && data.userId == request.auth.uid;
+    }
+
+    // Regras para a coleção de Pastas
     match /folders/{folderId} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid) && (request.resource == null || request.resource.data.userId == request.auth.uid);
+      allow read, update, delete: if isOwner(resource.data);
+      allow create: if isOwner(request.resource.data);
     }
     
+    // Regras para a coleção de Documentos
     match /documents/{docId} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid) && (request.resource == null || request.resource.data.userId == request.auth.uid);
+      allow read, update, delete: if isOwner(resource.data);
+      allow create: if isOwner(request.resource.data);
     }
     
+    // Regras para a coleção de Notificações
     match /notifications/{notifId} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid) && (request.resource == null || request.resource.data.userId == request.auth.uid);
+      allow read, update: if isOwner(resource.data);
+      allow delete: if isOwner(resource.data);
+      allow create: if isOwner(request.resource.data);
     }
+
+    // Comentário para forçar redeploy e garantir permissões de listagem (queries)
+    // Salt: fix_notifications_list_v4
   }
 }
