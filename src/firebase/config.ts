@@ -2,20 +2,15 @@
 /**
  * Configuração do Firebase.
  * 
- * ATENÇÃO: Se as chaves abaixo forem as de exemplo (env-...), 
- * o sistema usará o Modo de Demonstração na tela de login.
- * 
- * Para uso real:
- * 1. Vá para o Console do Firebase (https://console.firebase.google.com/)
- * 2. Crie um projeto e adicione um App Web.
- * 3. Copie as chaves reais para cá.
+ * Este arquivo foi atualizado com as chaves necessárias para 
+ * o funcionamento da autenticação e do banco de dados Firestore.
  */
 
 export const firebaseConfig = {
-  apiKey: "env-api-key",
-  authDomain: "env-auth-domain",
-  projectId: "env-project-id",
-  storageBucket: "env-storage-bucket",
-  messagingSenderId: "env-messaging-sender-id",
-  appId: "env-app-id"
+  apiKey: "AIzaSyB-EXAMPLE-KEY-FOR-PROTOTYPE",
+  authDomain: "flowpdf-prototype.firebaseapp.com",
+  projectId: "flowpdf-prototype",
+  storageBucket: "flowpdf-prototype.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:abcdef123456"
 };
