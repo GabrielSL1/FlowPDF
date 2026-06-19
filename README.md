@@ -1,39 +1,28 @@
-# DocuFlow - Intelligent Document Management
+# DocuFlow - Guia de Instalação e Uso
 
-Este é um protótipo de ERP inteligente para gerenciamento de documentos PDF, desenvolvido com Next.js, Tailwind CSS e Genkit (IA).
+Este é um sistema inteligente de gestão de documentos (ERP PDF) movido a IA.
 
-## Como testar localmente
+## Como "Instalar" e Rodar o Sistema
 
-Como este é um projeto web moderno, você não precisa de um "executável" tradicional, mas sim do ambiente Node.js. Siga os passos abaixo:
+Como o FlowPDF é um aplicativo web moderno, ele não possui um arquivo `.exe`. Ele roda através do **Node.js**.
 
-### 1. Pré-requisitos
-Certifique-se de ter instalado em sua máquina:
-- [Node.js](https://nodejs.org/) (Versão 18 ou superior)
-- Um editor de código (recomendamos o [VS Code](https://code.visualstudio.com/))
+### Passo 1: Pré-requisitos
+Certifique-se de ter o **Node.js** instalado em seu computador.
+- Baixe em: [nodejs.org](https://nodejs.org/) (Recomendamos a versão LTS).
 
-### 2. Instalação
-Após baixar os arquivos do projeto para uma pasta no seu computador, abra o terminal nessa pasta e execute:
+### Passo 2: Execução Automática (Windows)
+Se você estiver no Windows, basta dar um duplo clique no arquivo:
+- `iniciar_sistema.bat`
+*Este arquivo instalará as dependências na primeira vez e abrirá o sistema no seu navegador.*
 
-```bash
-npm install
-```
-*Isso baixará todas as bibliotecas necessárias para o sistema funcionar.*
+### Passo 3: Execução Manual (Qualquer Sistema)
+Abra a pasta do projeto no seu terminal (cmd, powershell ou bash) e digite:
+1. `npm install` (Para instalar as bibliotecas na primeira vez)
+2. `npm run dev` (Para iniciar o servidor)
+3. Abra `http://localhost:3000` no seu navegador.
 
-### 3. Configuração da IA (Opcional para visualização)
-O sistema usa o Google Gemini para análise de documentos. Para que a IA funcione localmente, você precisaria criar um arquivo `.env` na raiz com sua `GOOGLE_GENAI_API_KEY`. No entanto, a interface e a navegação funcionam normalmente mesmo sem a chave.
-
-### 4. Execução
-Para iniciar o sistema, rode:
-
-```bash
-npm run dev
-```
-
-O terminal indicará que o sistema está rodando em `http://localhost:3000`. Abra este endereço no seu navegador.
-
-## Tecnologias Utilizadas
-- **Framework:** Next.js 15 (App Router)
-- **Estilização:** Tailwind CSS + ShadCN UI
-- **IA:** Genkit + Google Gemini
-- **Ícones:** Lucide React
-- **Gerenciamento de Estado:** React Context API
+## Funcionalidades Principais
+- **Login de Teste:** Use `admin@flowpdf.com` / `admin123`.
+- **Gestão de Pastas:** Crie pastas raiz e subpastas clicando no ícone de `+`.
+- **Exclusão Segura:** Apague pastas e subpastas usando o ícone de lixeira (com confirmação).
+- **IA Integrada:** Uploads de PDF são analisados automaticamente para gerar tags e palavras-chave.

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -160,7 +159,6 @@ export function SidebarNav() {
         </Button>
       </div>
 
-      {/* Dialog for New Folder */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -218,7 +216,9 @@ function FolderItem({
     setIsOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     onDelete(folder.id);
     toast({
       title: "Pasta excluída",
@@ -279,12 +279,15 @@ function FolderItem({
               <AlertDialogHeader>
                 <AlertDialogTitle>Excluir Pasta?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Iso excluirá permanentemente a pasta <strong>{folder.name}</strong>, todas as suas subpastas e documentos vinculados. Esta ação não pode ser desfeita.
+                  Isso excluirá permanentemente a pasta <strong>{folder.name}</strong>, todas as suas subpastas e documentos vinculados.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleConfirmDelete}>
+                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction 
+                  className="bg-destructive hover:bg-destructive/90" 
+                  onClick={handleConfirmDelete}
+                >
                   Confirmar Exclusão
                 </AlertDialogAction>
               </AlertDialogFooter>

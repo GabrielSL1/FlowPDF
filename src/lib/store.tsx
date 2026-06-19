@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
@@ -72,17 +71,17 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
 
   const deleteFolder = useCallback((id: string) => {
     setState(prev => {
-      // Coletar todos os IDs de pastas que devem ser removidas (recursivamente)
-      const findChildIds = (parentId: string, allFolders: Folder[]): string[] => {
+      // Função recursiva para encontrar todos os IDs de subpastas
+      const getAllChildIds = (parentId: string, allFolders: Folder[]): string[] => {
         const children = allFolders.filter(f => f.parentId === parentId);
         let ids = children.map(c => c.id);
         children.forEach(c => {
-          ids = [...ids, ...findChildIds(c.id, allFolders)];
+          ids = [...ids, ...getAllChildIds(c.id, allFolders)];
         });
         return ids;
       };
 
-      const idsToRemove = [id, ...findChildIds(id, prev.folders)];
+      const idsToRemove = [id, ...getAllChildIds(id, prev.folders)];
 
       return {
         ...prev,
@@ -112,7 +111,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, searchQuery: query }));
   }, []);
 
-  const contextValue = useMemo(() => ({
+  const value = useMemo(() => ({
     state,
     addFolder,
     deleteFolder,
@@ -123,7 +122,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   }), [state, addFolder, deleteFolder, addDocument, deleteDocument, setCurrentFolder, setSearchQuery]);
 
   return (
-    <FlowPDFContext.Provider value={contextValue}>
+    <FlowPDFContext.Provider value={value}>
       {children}
     </FlowPDFContext.Provider>
   );
