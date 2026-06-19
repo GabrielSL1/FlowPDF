@@ -15,7 +15,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { PDFViewerModal } from './PDFViewerModal';
-import Image from 'next/image';
 
 export function DocumentGrid() {
   const { state, deleteDocument } = useFlowPDF();
@@ -49,44 +48,40 @@ export function DocumentGrid() {
           onClick={() => setViewingDoc(doc.id)}
         >
           <CardContent className="p-0">
-            <div className="aspect-[4/5] bg-slate-100/50 relative group-hover:bg-slate-200/50 transition-colors overflow-hidden border-b flex items-center justify-center p-6">
+            <div className="aspect-[4/5] bg-slate-100/30 relative group-hover:bg-slate-200/40 transition-colors overflow-hidden border-b flex items-center justify-center p-8">
               
-              {/* PDF Preview: Styled as a physical Paper */}
-              <div className="w-full h-full bg-white shadow-lg rounded-sm border border-border/40 relative overflow-hidden transform transition-all group-hover:scale-[1.02] group-hover:-translate-y-1 flex flex-col">
+              {/* PDF Sheet Representation - No random photos */}
+              <div className="w-full h-full bg-white shadow-md rounded-sm border border-border/40 relative overflow-hidden transform transition-all group-hover:scale-[1.05] group-hover:-translate-y-1 flex flex-col p-6">
                 
-                {/* Visual Header of the Paper */}
-                <div className="h-4 w-full bg-slate-50 border-b border-slate-100 flex items-center px-2 gap-1">
-                  <div className="w-1 h-1 rounded-full bg-slate-200" />
-                  <div className="w-1 h-1 rounded-full bg-slate-200" />
-                </div>
+                {/* Visual Header Line (Red to indicate PDF) */}
+                <div className="h-1.5 w-1/3 bg-red-500 rounded-full mb-6 opacity-80" />
 
-                {/* Simulated Content/Thumbnail */}
-                <div className="flex-1 relative">
-                  <Image 
-                    src={doc.thumbnailUrl || `https://picsum.photos/seed/${doc.id}/300/400`}
-                    alt={doc.name}
-                    width={300}
-                    height={400}
-                    className="object-cover opacity-80 mix-blend-multiply grayscale-[20%] group-hover:opacity-100 transition-opacity w-full h-full"
-                    data-ai-hint="document paper"
-                  />
+                {/* Simulated Content/Lines */}
+                <div className="space-y-4 flex-1">
+                  <div className="h-2 w-full bg-slate-100 rounded-full" />
+                  <div className="h-2 w-full bg-slate-100 rounded-full" />
+                  <div className="h-2 w-3/4 bg-slate-100 rounded-full" />
                   
-                  {/* Subtle Text Lines Overlay (Simulated Preview Effect) */}
-                  <div className="absolute inset-0 p-4 space-y-3 opacity-40 group-hover:opacity-20 transition-opacity pointer-events-none">
-                    <div className="h-2 w-3/4 bg-slate-200 rounded-full" />
-                    <div className="h-2 w-1/2 bg-slate-200 rounded-full" />
-                    <div className="h-2 w-full bg-slate-100 rounded-full" />
-                    <div className="h-2 w-2/3 bg-slate-100 rounded-full" />
+                  <div className="pt-4 space-y-4">
+                    <div className="h-2 w-full bg-slate-50 rounded-full" />
+                    <div className="h-2 w-5/6 bg-slate-50 rounded-full" />
+                    <div className="h-2 w-full bg-slate-50 rounded-full" />
+                    <div className="h-2 w-2/3 bg-slate-50 rounded-full" />
+                  </div>
+
+                  <div className="pt-4 space-y-4 opacity-40">
+                    <div className="h-2 w-full bg-slate-50 rounded-full" />
+                    <div className="h-2 w-1/2 bg-slate-50 rounded-full" />
                   </div>
                 </div>
 
-                {/* Paper Texture and Lighting */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-black/5 via-transparent to-white/10 pointer-events-none" />
-                
-                {/* Corner Fold Visual */}
-                <div className="absolute top-0 right-0 w-6 h-6 bg-white/60 backdrop-blur-sm border-l border-b border-black/5 rounded-bl-sm flex items-center justify-center pointer-events-none">
-                   <div className="w-0 h-0 border-t-[10px] border-t-slate-200 border-r-[10px] border-r-transparent" />
+                {/* Watermark Logo/Initial */}
+                <div className="absolute bottom-6 right-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <span className="text-6xl font-bold text-primary select-none">F</span>
                 </div>
+
+                {/* Lighting and Texture Effect */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-black/5 via-transparent to-white/20 pointer-events-none" />
               </div>
 
               {/* Actions Overlay */}
