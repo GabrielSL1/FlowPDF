@@ -31,7 +31,17 @@ export function SidebarNav() {
   const rootFolders = state.folders.filter(f => f.parentId === null);
 
   const handleLogout = async () => {
-    if (auth) await signOut(auth);
+    // Remove usuário de teste se houver
+    localStorage.removeItem('flowpdf_demo_user');
+    
+    // Tenta deslogar do Firebase
+    try {
+      if (auth) await signOut(auth);
+    } catch (e) {
+      console.log("Deslogado do modo demo.");
+    }
+    
+    window.location.href = '/login';
   };
 
   return (
