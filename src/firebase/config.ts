@@ -2,18 +2,17 @@
 /**
  * Configuração do Firebase.
  * 
- * Estas credenciais são públicas e identificam o seu projeto no Google Cloud.
- * A segurança é garantida pelas Regras de Segurança do Firestore e Auth.
- * 
- * ATENÇÃO: Se o erro de API Key persistir, verifique se o Project ID abaixo
- * corresponde ao ID exibido na URL do seu Console do Firebase.
+ * Siga os passos abaixo para obter suas chaves reais:
+ * 1. Vá para o Console do Firebase > Configurações do Projeto.
+ * 2. Em "Seus Aplicativos", selecione o app Web (ícone </>).
+ * 3. Copie os valores e substitua os campos abaixo.
  */
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyB-REAL-KEY-WILL-BE-INSERTED-HERE", 
+  apiKey: "COLE_SUA_API_KEY_AQUI", 
   authDomain: "flowpdf-prototype.firebaseapp.com",
   projectId: "flowpdf-prototype",
   storageBucket: "flowpdf-prototype.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdef123456"
+  messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+  appId: "SEU_APP_ID"
 };
