@@ -2,7 +2,7 @@
   "entities": {
     "User": {
       "title": "User Profile",
-      "description": "Information about the authenticated user.",
+      "description": "Informações do perfil do usuário autenticado.",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
@@ -11,9 +11,50 @@
         "photoURL": { "type": "string" }
       },
       "required": ["uid", "email"]
+    },
+    "Folder": {
+      "title": "Pasta",
+      "description": "Representa uma pasta no sistema de arquivos virtual do usuário.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "parentId": { "type": ["string", "null"] },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "userId", "createdAt"]
+    },
+    "Document": {
+      "title": "Documento PDF",
+      "description": "Metadados de um arquivo PDF processado pela IA e armazenado pelo usuário.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "size": { "type": "string" },
+        "uploadDate": { "type": "string", "format": "date-time" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "folderId": { "type": ["string", "null"] },
+        "userId": { "type": "string" }
+      },
+      "required": ["name", "url", "userId", "uploadDate"]
     }
   },
   "auth": {
     "providers": ["google.com", "password"]
+  },
+  "firestore": {
+    "/folders/{folderId}": {
+      "schema": "#/entities/Folder",
+      "description": "Coleção de pastas organizada por usuário."
+    },
+    "/documents/{docId}": {
+      "schema": "#/entities/Document",
+      "description": "Coleção de documentos PDF vinculados a pastas e usuários."
+    }
   }
 }
