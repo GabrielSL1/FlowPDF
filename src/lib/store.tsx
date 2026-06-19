@@ -10,10 +10,9 @@ import {
   addDoc, 
   deleteDoc, 
   doc, 
-  orderBy 
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 interface FlowPDFContextType {
   state: DocuFlowState;
@@ -71,7 +70,8 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     };
 
     addDoc(collection(db, 'folders'), folderData)
-      .catch(async () => {
+      .catch((err) => {
+        console.warn("Firestore Error:", err);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: 'folders',
           operation: 'create',
@@ -97,22 +97,9 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     folderIdsToDelete.forEach(fId => {
       const docsInFolder = state.documents.filter(d => d.folderId === fId);
       docsInFolder.forEach(d => {
-        deleteDoc(doc(db, 'documents', d.id))
-          .catch(async () => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: `documents/${d.id}`,
-              operation: 'delete'
-            }));
-          });
+        deleteDoc(doc(db, 'documents', d.id));
       });
-
-      deleteDoc(doc(db, 'folders', fId))
-        .catch(async () => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: `folders/${fId}`,
-            operation: 'delete'
-          }));
-        });
+      deleteDoc(doc(db, 'folders', fId));
     });
     
     if (currentFolderId && folderIdsToDelete.includes(currentFolderId)) {
@@ -129,7 +116,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     };
 
     return addDoc(collection(db, 'documents'), finalDocData)
-      .catch(async () => {
+      .catch(() => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: 'documents',
           operation: 'create',
@@ -140,13 +127,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
 
   const deleteDocument = useCallback(async (id: string) => {
     if (!user || !db) return;
-    deleteDoc(doc(db, 'documents', id))
-      .catch(async () => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `documents/${id}`,
-          operation: 'delete'
-        }));
-      });
+    deleteDoc(doc(db, 'documents', id));
   }, [db, user]);
 
   const value = useMemo(() => ({
