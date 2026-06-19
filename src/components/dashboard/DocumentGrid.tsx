@@ -15,7 +15,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { PDFViewerModal } from './PDFViewerModal';
-import Image from 'next/image';
 
 export function DocumentGrid() {
   const { state, deleteDocument } = useFlowPDF();
@@ -51,43 +50,31 @@ export function DocumentGrid() {
           <CardContent className="p-0">
             <div className="aspect-[4/5] bg-slate-100/30 relative group-hover:bg-slate-200/40 transition-colors overflow-hidden border-b flex items-center justify-center p-4">
               
-              {/* PDF Preview Representation */}
-              <div className="w-full h-full bg-white shadow-md rounded-sm border border-border/40 relative overflow-hidden transform transition-all group-hover:scale-[1.05] group-hover:-translate-y-1 flex flex-col">
+              {/* PDF Paper Representation (White Sheet) */}
+              <div className="w-full h-full bg-white shadow-md rounded-sm border border-border/40 relative overflow-hidden transform transition-all group-hover:scale-[1.05] group-hover:-translate-y-1 flex flex-col p-6">
+                {/* Red Header Strip (PDF feel) */}
+                <div className="h-1.5 w-1/3 bg-red-500 rounded-full mb-6 opacity-80" />
                 
-                {doc.thumbnailUrl ? (
-                  <div className="relative w-full h-full">
-                    <Image 
-                      src={doc.thumbnailUrl} 
-                      alt={doc.name}
-                      fill
-                      className="object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                      data-ai-hint="document content"
-                    />
-                    {/* Overlay to simulate paper texture */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-black/5 via-transparent to-white/10 pointer-events-none" />
-                    
-                    {/* Red PDF Tag on Thumbnail */}
-                    <div className="absolute top-0 left-0 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-br-sm shadow-sm">
-                      PDF
-                    </div>
+                {/* Content Simulation (Lines) */}
+                <div className="space-y-4 flex-1">
+                  <div className="h-2 w-full bg-slate-100 rounded-full" />
+                  <div className="h-2 w-full bg-slate-100 rounded-full" />
+                  <div className="h-2 w-3/4 bg-slate-100 rounded-full" />
+                  <div className="pt-4 space-y-4">
+                    <div className="h-2 w-full bg-slate-50 rounded-full" />
+                    <div className="h-2 w-5/6 bg-slate-50 rounded-full" />
                   </div>
-                ) : (
-                  <div className="flex flex-col p-6 h-full">
-                    <div className="h-1.5 w-1/3 bg-red-500 rounded-full mb-6 opacity-80" />
-                    <div className="space-y-4 flex-1">
-                      <div className="h-2 w-full bg-slate-100 rounded-full" />
-                      <div className="h-2 w-full bg-slate-100 rounded-full" />
-                      <div className="h-2 w-3/4 bg-slate-100 rounded-full" />
-                      <div className="pt-4 space-y-4">
-                        <div className="h-2 w-full bg-slate-50 rounded-full" />
-                        <div className="h-2 w-5/6 bg-slate-50 rounded-full" />
-                      </div>
-                    </div>
-                    <div className="absolute bottom-6 right-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                      <span className="text-6xl font-bold text-primary select-none">F</span>
-                    </div>
-                  </div>
-                )}
+                </div>
+
+                {/* Subtle Branding Logo */}
+                <div className="absolute bottom-6 right-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <span className="text-6xl font-bold text-primary select-none">F</span>
+                </div>
+                
+                {/* Red PDF Tag on Corner */}
+                <div className="absolute top-0 left-0 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-br-sm shadow-sm">
+                  PDF
+                </div>
               </div>
 
               {/* Actions Overlay */}
