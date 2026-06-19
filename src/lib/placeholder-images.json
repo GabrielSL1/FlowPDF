@@ -1,3 +1,16 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero-bg",
+      "description": "Abstract blue tech background",
+      "imageUrl": "https://picsum.photos/seed/docuflow-hero/1200/800",
+      "imageHint": "abstract tech"
+    },
+    {
+      "id": "pdf-thumbnail",
+      "description": "PDF Document Icon placeholder",
+      "imageUrl": "https://picsum.photos/seed/pdf-thumb/300/400",
+      "imageHint": "document paper"
+    }
+  ]
 }
