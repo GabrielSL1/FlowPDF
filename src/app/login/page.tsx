@@ -57,11 +57,8 @@ export default function LoginPage() {
       case 'auth/user-not-found':
         message = "Não existe nenhuma conta com este e-mail.";
         break;
-      case 'auth/popup-closed-by-user':
-        message = "O login com Google foi cancelado.";
-        break;
       case 'auth/api-key-not-valid':
-        message = "A chave do Firebase ainda está sendo validada. Aguarde 30 segundos e tente novamente.";
+        message = "A chave do Firebase está sendo validada. Por favor, aguarde alguns segundos e tente novamente.";
         break;
       default:
         message = error.message || "Falha na autenticação.";
@@ -87,24 +84,20 @@ export default function LoginPage() {
     setAuthLoading(true);
     
     try {
-      if (!auth) throw new Error("Firebase não inicializado corretamente.");
+      if (!auth) throw new Error("Serviço de autenticação não disponível.");
 
       if (mode === 'signup') {
         if (!displayName) {
           toast({
             variant: "destructive",
             title: "Nome obrigatório",
-            description: "Por favor, informe seu nome completo para o cadastro.",
+            description: "Por favor, informe seu nome para o cadastro.",
           });
           setAuthLoading(false);
           return;
         }
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName });
-        toast({
-          title: "Conta criada!",
-          description: `Bem-vindo ao FlowPDF, ${displayName}!`,
-        });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -282,9 +275,9 @@ export default function LoginPage() {
         <CardFooter className="flex flex-col gap-4">
           <Alert className="bg-primary/5 border-primary/20">
             <ShieldCheck className="h-4 w-4 text-primary" />
-            <AlertTitle className="text-xs font-bold text-primary">Segurança Ativa</AlertTitle>
+            <AlertTitle className="text-xs font-bold text-primary">Conexão Segura</AlertTitle>
             <AlertDescription className="text-[10px] text-muted-foreground">
-              Seus dados são protegidos e sincronizados em tempo real com o Google Firebase.
+              Seus documentos são protegidos pelo Google Cloud.
             </AlertDescription>
           </Alert>
         </CardFooter>
