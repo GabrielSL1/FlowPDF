@@ -31,6 +31,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -207,17 +218,13 @@ function FolderItem({
     setIsOpen(true);
   };
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (confirm(`Excluir a pasta "${folder.name}" e todo seu conteúdo?`)) {
-      onDelete(folder.id);
-      toast({
-        title: "Pasta excluída",
-        description: `A pasta "${folder.name}" foi removida.`,
-        variant: "destructive"
-      });
-    }
+  const handleConfirmDelete = () => {
+    onDelete(folder.id);
+    toast({
+      title: "Pasta excluída",
+      description: `A pasta "${folder.name}" e seus itens foram removidos.`,
+      variant: "destructive"
+    });
   };
 
   return (
@@ -230,6 +237,7 @@ function FolderItem({
               "p-0 h-9 w-6 hover:bg-sidebar-accent shrink-0 transition-opacity",
               children.length === 0 ? "opacity-0 pointer-events-none" : "opacity-100"
             )}
+            onClick={(e) => e.stopPropagation()}
           >
             {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </Button>
@@ -255,14 +263,33 @@ function FolderItem({
           >
             <Plus className="w-3 h-3" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-6 w-6 text-white/50 hover:text-white hover:bg-destructive rounded-full bg-sidebar-background/50 backdrop-blur-sm" 
-            onClick={handleDelete}
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
+          
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 text-white/50 hover:text-white hover:bg-destructive rounded-full bg-sidebar-background/50 backdrop-blur-sm" 
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir Pasta?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Iso excluirá permanentemente a pasta <strong>{folder.name}</strong>, todas as suas subpastas e documentos vinculados. Esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleConfirmDelete}>
+                  Confirmar Exclusão
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
       
