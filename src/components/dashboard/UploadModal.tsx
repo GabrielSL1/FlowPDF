@@ -12,7 +12,7 @@ import {
   DialogTrigger 
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Loader2 } from 'lucide-react';
+import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { tagDocument } from '@/ai/flows/ai-document-tagging';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -23,6 +23,7 @@ export function UploadModal() {
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState<string>('');
   const { addDocument, state } = useFlowPDF();
   const { user } = useUser();
   const storage = useStorage();
@@ -31,7 +32,16 @@ export function UploadModal() {
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user || !storage) return;
+    if (!file || !user) return;
+
+    if (!storage) {
+      toast({
+        title: "Erro de Configuração",
+        description: "Serviço de Storage não inicializado. Verifique seu Firebase.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     if (file.type !== 'application/pdf') {
       toast({
@@ -44,68 +54,100 @@ export function UploadModal() {
 
     setUploading(true);
     setProgress(0);
+    setStatus('Iniciando envio seguro...');
 
     try {
+      // Caminho organizado por UID do usuário para segurança
       const storageRef = ref(storage, `users/${user.uid}/documents/${Date.now()}_${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
       uploadTask.on('state_changed', 
         (snapshot) => {
           const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-          setProgress(percent * 0.7); 
+          // Reservamos os últimos 20% para o processamento da IA
+          setProgress(percent * 0.8);
+          setStatus('Sincronizando com Cloud Storage...');
         }, 
         (error) => {
-          throw error;
+          console.error("Erro no Storage:", error);
+          setUploading(false);
+          let msg = "Erro ao enviar arquivo.";
+          if (error.code === 'storage/unauthorized') {
+            msg = "Acesso negado. Ative o Firebase Storage no console e verifique as Rules.";
+          }
+          toast({
+            title: "Erro no Cloud Storage",
+            description: msg,
+            variant: "destructive"
+          });
         },
         async () => {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          
-          setProgress(85);
-          const aiResults = await tagDocument({ 
-            documentContent: `Documento: ${file.name}. Tamanho: ${file.size} bytes.`
-          });
-
-          // 1. Salvar no Firestore
-          await addDocument({
-            name: file.name,
-            url: downloadURL,
-            thumbnailUrl: `https://picsum.photos/seed/${file.name}/300/400`,
-            size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
-            uploadDate: new Date().toISOString(),
-            type: 'pdf' as const,
-            tags: aiResults.tags,
-            keywords: aiResults.keywords,
-            folderId: state.currentFolderId,
-          });
-
-          // 2. Criar Notificação no Firestore
-          await addDoc(collection(db, 'notifications'), {
-            userId: user.uid,
-            message: `PDF "${file.name}" carregado e analisado pela IA com sucesso!`,
-            type: 'upload_success',
-            createdAt: new Date().toISOString(),
-            read: false
-          });
-
-          setProgress(100);
-          setTimeout(() => {
-            setUploading(false);
-            setOpen(false);
-            setProgress(0);
-            toast({
-              title: "Documento Sincronizado",
-              description: `${file.name} foi armazenado e analisado com sucesso.`,
+          try {
+            setStatus('Gerando link de acesso...');
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            
+            setProgress(85);
+            setStatus('IA analisando conteúdo...');
+            
+            // Simulação de extração de texto para a IA (em um app real, você extrairia o PDF aqui)
+            const aiResults = await tagDocument({ 
+              documentContent: `Documento PDF: ${file.name}. Tamanho: ${(file.size / 1024).toFixed(2)} KB. Organizado em: ${state.folders.find(f => f.id === state.currentFolderId)?.name || 'Raiz'}.`
             });
-          }, 500);
+
+            setStatus('Salvando metadados...');
+            // 1. Salvar no Firestore através do store central
+            await addDocument({
+              name: file.name,
+              url: downloadURL,
+              thumbnailUrl: `https://picsum.photos/seed/${encodeURIComponent(file.name)}/300/400`,
+              size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+              uploadDate: new Date().toISOString(),
+              type: 'pdf',
+              tags: aiResults.tags,
+              keywords: aiResults.keywords,
+              folderId: state.currentFolderId,
+            });
+
+            // 2. Criar Notificação no Firestore
+            await addDoc(collection(db, 'notifications'), {
+              userId: user.uid,
+              message: `PDF "${file.name}" carregado e analisado pela IA com sucesso!`,
+              type: 'upload_success',
+              createdAt: new Date().toISOString(),
+              read: false
+            });
+
+            setProgress(100);
+            setStatus('Concluído!');
+            
+            setTimeout(() => {
+              setUploading(false);
+              setOpen(false);
+              setProgress(0);
+              setStatus('');
+              toast({
+                title: "Documento Sincronizado",
+                description: `${file.name} foi armazenado e analisado com sucesso.`,
+              });
+            }, 800);
+          } catch (innerError: any) {
+            console.error("Erro no processamento pós-upload:", innerError);
+            setUploading(false);
+            toast({
+              title: "Erro no processamento",
+              description: "O arquivo foi enviado, mas houve erro ao analisar os dados.",
+              variant: "destructive"
+            });
+          }
         }
       );
 
     } catch (error: any) {
-      console.error(error);
+      console.error("Erro geral no upload:", error);
       setUploading(false);
       toast({
-        title: "Erro no upload",
-        description: error.message || "Algo deu errado ao processar o documento no Firebase.",
+        title: "Erro inesperado",
+        description: error.message || "Algo deu errado ao iniciar o processo.",
         variant: "destructive"
       });
     }
@@ -131,28 +173,36 @@ export function UploadModal() {
                 className="absolute inset-0 opacity-0 cursor-pointer" 
                 onChange={handleUpload}
                 accept=".pdf"
+                disabled={uploading}
               />
               <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center text-accent group-hover:scale-110 transition-transform">
                 <Upload className="w-8 h-8" />
               </div>
               <div className="text-center">
-                <p className="font-medium">Clique para selecionar o PDF</p>
-                <p className="text-sm text-muted-foreground mt-1">O arquivo será armazenado com segurança</p>
+                <p className="font-medium text-foreground">Clique para selecionar o PDF</p>
+                <p className="text-xs text-muted-foreground mt-1">O arquivo será armazenado com criptografia</p>
               </div>
             </div>
           ) : (
             <div className="py-8 space-y-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center animate-pulse">
                   <FileText className="w-6 h-6 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <div className="flex justify-between mb-1">
-                    <span className="text-sm font-medium">Sincronizando no Cloud...</span>
-                    <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm font-bold text-foreground">{status}</span>
+                    <span className="text-xs font-mono text-muted-foreground">{Math.round(progress)}%</span>
                   </div>
                   <Progress value={progress} className="h-2" />
                 </div>
+              </div>
+              
+              <div className="bg-muted/30 p-4 rounded-lg flex gap-3 items-start border border-border/50">
+                <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Não feche esta janela. Estamos movendo seus dados para os servidores do Firebase e ativando a Inteligência Artificial para catalogação automática.
+                </p>
               </div>
             </div>
           )}
