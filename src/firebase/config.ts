@@ -1,10 +1,10 @@
 /**
- * Configuração oficial do Firebase para o projeto studio-8106062556-31bc0.
- * Este arquivo foi atualizado com as credenciais do projeto fornecido.
+ * Configuração oficial do Firebase para o projeto FlowPDF.
+ * Atualizado com a API Key real fornecida pelo usuário.
  */
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyD-733997410099-placeholder", // Substitua pela chave real do Console do Firebase se o erro persistir
+  apiKey: "AIzaSyBXsQf9HZc30XS1JAsEW7Iklst1__b-YO4",
   authDomain: "studio-8106062556-31bc0.firebaseapp.com",
   projectId: "studio-8106062556-31bc0",
   storageBucket: "studio-8106062556-31bc0.firebasestorage.app",
