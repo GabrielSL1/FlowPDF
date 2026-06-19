@@ -42,18 +42,16 @@ export default function LoginPage() {
     console.error("Auth Error:", error);
     let message = "Ocorreu um erro inesperado.";
     
-    if (error.message && error.message.includes('api-key-not-valid')) {
-      message = "Configuração do Firebase ausente ou inválida. Você precisa configurar sua API Key real no arquivo src/firebase/config.ts.";
+    // Tratamento de erros comuns do Firebase
+    if (error.code === 'auth/invalid-api-key' || error.message?.includes('api-key-not-valid')) {
+      message = "A API Key do Firebase é inválida. Configure as chaves reais no arquivo src/firebase/config.ts.";
     } else {
       switch (error.code) {
         case 'auth/operation-not-allowed':
-          message = "Este método de login não está ativado no Firebase Console. Ative 'E-mail/Senha' ou 'Google'.";
+          message = "Este método de login não está ativado no Firebase Console.";
           break;
         case 'auth/popup-blocked':
           message = "O popup de login foi bloqueado pelo navegador.";
-          break;
-        case 'auth/popup-closed-by-user':
-          message = "A janela foi fechada antes da conclusão.";
           break;
         case 'auth/email-already-in-use':
           message = "Este e-mail já está em uso.";
@@ -156,7 +154,7 @@ export default function LoginPage() {
           {errorMessage && (
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Erro de Configuração</AlertTitle>
+              <AlertTitle>Atenção</AlertTitle>
               <AlertDescription className="text-xs">{errorMessage}</AlertDescription>
             </Alert>
           )}
