@@ -16,7 +16,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Mail, Lock, User as UserIcon, ShieldCheck } from 'lucide-react';
+import { Loader2, Mail, Lock, User as UserIcon, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -42,36 +42,34 @@ export default function LoginPage() {
     console.error("Auth Error:", error);
     let message = "Ocorreu um erro inesperado.";
     
-    switch (error.code) {
-      case 'auth/email-already-in-use':
-        message = "Este e-mail já está em uso por outra conta.";
-        break;
-      case 'auth/invalid-email':
-        message = "O endereço de e-mail não é válido.";
-        break;
-      case 'auth/operation-not-allowed':
-        message = "O login por e-mail/senha não está ativado no Firebase Console.";
-        break;
-      case 'auth/weak-password':
-        message = "A senha é muito fraca. Use pelo menos 6 caracteres.";
-        break;
-      case 'auth/wrong-password':
-        message = "Senha incorreta.";
-        break;
-      case 'auth/user-not-found':
-        message = "Não existe nenhuma conta com este e-mail.";
-        break;
-      case 'auth/popup-blocked':
-        message = "O popup de login foi bloqueado pelo seu navegador.";
-        break;
-      default:
-        message = error.message || "Falha na autenticação.";
+    if (error.code === 'auth/api-key-not-valid') {
+      message = "Configuração do Firebase pendente. Por favor, verifique se as chaves no arquivo config.ts estão corretas no Console do Firebase.";
+    } else {
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          message = "Este e-mail já está em uso por outra conta.";
+          break;
+        case 'auth/invalid-email':
+          message = "O endereço de e-mail não é válido.";
+          break;
+        case 'auth/weak-password':
+          message = "A senha é muito fraca. Use pelo menos 6 caracteres.";
+          break;
+        case 'auth/wrong-password':
+          message = "Senha incorreta.";
+          break;
+        case 'auth/user-not-found':
+          message = "Não existe nenhuma conta com este e-mail.";
+          break;
+        default:
+          message = error.message || "Falha na autenticação.";
+      }
     }
     
     setErrorMessage(message);
     toast({
       variant: "destructive",
-      title: "Erro de Autenticação",
+      title: "Erro de Acesso",
       description: message,
     });
   };
@@ -160,6 +158,16 @@ export default function LoginPage() {
           </div>
         </CardHeader>
         <CardContent>
+          {errorMessage && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Atenção</AlertTitle>
+              <AlertDescription className="text-xs">
+                {errorMessage}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Entrar</TabsTrigger>
@@ -288,7 +296,7 @@ export default function LoginPage() {
             <ShieldCheck className="h-4 w-4 text-primary" />
             <AlertTitle className="text-xs font-bold text-primary">Segurança Ativa</AlertTitle>
             <AlertDescription className="text-[10px] text-muted-foreground">
-              Seus dados agora são protegidos e sincronizados em tempo real com o Google Firebase.
+              Seus dados são protegidos e sincronizados em tempo real com o Google Firebase.
             </AlertDescription>
           </Alert>
         </CardFooter>
