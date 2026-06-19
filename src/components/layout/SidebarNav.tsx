@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -12,7 +13,8 @@ import {
   Trash2, 
   LayoutDashboard,
   HardDrive,
-  LogOut
+  LogOut,
+  FolderPlus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -60,7 +62,7 @@ export function SidebarNav() {
     try {
       if (auth) await signOut(auth);
     } catch (e) {
-      console.log("Deslogado do modo demo.");
+      console.log("Deslogado.");
     }
     window.location.href = '/login';
   };
@@ -71,14 +73,22 @@ export function SidebarNav() {
     setIsDialogOpen(true);
   };
 
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     if (newFolderName.trim()) {
-      addFolder(newFolderName.trim(), parentFolderId);
-      setIsDialogOpen(false);
-      toast({
-        title: "Pasta criada",
-        description: `A pasta "${newFolderName.trim()}" foi criada com sucesso.`,
-      });
+      try {
+        await addFolder(newFolderName.trim(), parentFolderId);
+        setIsDialogOpen(false);
+        toast({
+          title: "Sucesso!",
+          description: `Pasta "${newFolderName.trim()}" sincronizada com o Firebase.`,
+        });
+      } catch (err) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível criar a pasta. Verifique o Modo de Teste no Firestore.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -106,33 +116,36 @@ export function SidebarNav() {
           </Button>
           
           <div className="pt-6 pb-2 px-2 text-xs font-semibold uppercase tracking-wider opacity-60 flex items-center justify-between">
-            Pastas
+            Meus Espaços
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-5 w-5 hover:bg-sidebar-accent rounded-full"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                openNewFolderDialog(null);
-              }}
+              className="h-6 w-6 hover:bg-sidebar-accent rounded-full text-white"
+              onClick={() => openNewFolderDialog(null)}
+              title="Nova Pasta Raiz"
             >
-              <Plus className="w-3 h-3" />
+              <Plus className="w-4 h-4" />
             </Button>
           </div>
 
-          <div className="space-y-1">
-            {rootFolders.map(folder => (
-              <FolderItem 
-                key={folder.id} 
-                folder={folder} 
-                allFolders={state.folders} 
-                currentFolderId={state.currentFolderId}
-                onSelect={setCurrentFolder}
-                onDelete={deleteFolder}
-                onAddSubfolder={openNewFolderDialog}
-              />
-            ))}
+          <div className="space-y-1 mt-2">
+            {rootFolders.length === 0 ? (
+              <div className="px-3 py-4 text-xs italic opacity-40 text-center border border-dashed border-white/10 rounded-lg">
+                Nenhuma pasta criada
+              </div>
+            ) : (
+              rootFolders.map(folder => (
+                <FolderItem 
+                  key={folder.id} 
+                  folder={folder} 
+                  allFolders={state.folders} 
+                  currentFolderId={state.currentFolderId}
+                  onSelect={setCurrentFolder}
+                  onDelete={deleteFolder}
+                  onAddSubfolder={openNewFolderDialog}
+                />
+              ))
+            )}
           </div>
         </nav>
       </div>
@@ -141,12 +154,12 @@ export function SidebarNav() {
         <div className="bg-sidebar-accent/40 rounded-xl p-4 border border-sidebar-border/30">
           <div className="flex items-center gap-2 mb-2">
             <HardDrive className="w-4 h-4 text-accent" />
-            <span className="text-sm font-medium">Armazenamento</span>
+            <span className="text-sm font-medium">Cloud Storage</span>
           </div>
           <div className="h-1.5 w-full bg-sidebar-border rounded-full overflow-hidden">
-            <div className="h-full bg-accent w-[35%]" />
+            <div className="h-full bg-accent w-[15%]" />
           </div>
-          <p className="text-xs mt-2 opacity-70">1.2 GB de 5 GB usados</p>
+          <p className="text-[10px] mt-2 opacity-70 uppercase tracking-widest font-bold">Modo Firebase Ativo</p>
         </div>
 
         <Button 
@@ -162,7 +175,7 @@ export function SidebarNav() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{parentFolderId ? 'Criar Subpasta' : 'Nova Pasta Raiz'}</DialogTitle>
+            <DialogTitle>{parentFolderId ? 'Nova Subpasta' : 'Nova Pasta Raiz'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -171,7 +184,7 @@ export function SidebarNav() {
                 id="folder-name"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="Ex: Documentos 2024"
+                placeholder="Ex: Contratos, Notas Fiscais..."
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleCreateFolder();
@@ -181,7 +194,7 @@ export function SidebarNav() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>Criar Pasta</Button>
+            <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>Sincronizar no Cloud</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -205,27 +218,8 @@ function FolderItem({
   onAddSubfolder: (parentId: string) => void;
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const { toast } = useToast();
   const children = allFolders.filter(f => f.parentId === folder.id);
   const isActive = currentFolderId === folder.id;
-
-  const handleAddChild = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onAddSubfolder(folder.id);
-    setIsOpen(true);
-  };
-
-  const handleConfirmDelete = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDelete(folder.id);
-    toast({
-      title: "Pasta excluída",
-      description: `A pasta "${folder.name}" e seus itens foram removidos.`,
-      variant: "destructive"
-    });
-  };
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -258,8 +252,13 @@ function FolderItem({
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-6 w-6 hover:bg-sidebar-accent rounded-full bg-sidebar-background/50 backdrop-blur-sm" 
-            onClick={handleAddChild}
+            className="h-6 w-6 hover:bg-sidebar-accent rounded-full bg-sidebar-background/80" 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onAddSubfolder(folder.id);
+              setIsOpen(true);
+            }}
           >
             <Plus className="w-3 h-3" />
           </Button>
@@ -269,7 +268,7 @@ function FolderItem({
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-6 w-6 text-white/50 hover:text-white hover:bg-destructive rounded-full bg-sidebar-background/50 backdrop-blur-sm" 
+                className="h-6 w-6 text-white/50 hover:text-white hover:bg-destructive rounded-full bg-sidebar-background/80" 
                 onClick={(e) => e.stopPropagation()}
               >
                 <Trash2 className="w-3 h-3" />
@@ -279,14 +278,17 @@ function FolderItem({
               <AlertDialogHeader>
                 <AlertDialogTitle>Excluir Pasta?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Isso excluirá permanentemente a pasta <strong>{folder.name}</strong>, todas as suas subpastas e documentos vinculados.
+                  Isso excluirá permanentemente <strong>{folder.name}</strong> e todos os itens dentro dela do seu banco de dados.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
                 <AlertDialogAction 
                   className="bg-destructive hover:bg-destructive/90" 
-                  onClick={handleConfirmDelete}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(folder.id);
+                  }}
                 >
                   Confirmar Exclusão
                 </AlertDialogAction>
