@@ -12,7 +12,7 @@ import {
   DialogTrigger 
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Loader2, AlertCircle, XCircle } from 'lucide-react';
 import { tagDocument } from '@/ai/flows/ai-document-tagging';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -24,11 +24,20 @@ export function UploadModal() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<string>('');
+  const [errorType, setErrorType] = useState<string | null>(null);
+  
   const { addDocument, state } = useFlowPDF();
   const { user } = useUser();
   const storage = useStorage();
   const db = useFirestore();
   const { toast } = useToast();
+
+  const resetUpload = () => {
+    setUploading(false);
+    setProgress(0);
+    setStatus('');
+    setErrorType(null);
+  };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -36,8 +45,8 @@ export function UploadModal() {
 
     if (!storage) {
       toast({
-        title: "Erro de Configuração",
-        description: "Serviço de Storage não inicializado. Verifique seu Firebase.",
+        title: "Erro Crítico",
+        description: "Serviço de Storage não inicializado no Firebase.",
         variant: "destructive"
       });
       return;
@@ -54,48 +63,52 @@ export function UploadModal() {
 
     setUploading(true);
     setProgress(0);
-    setStatus('Iniciando envio seguro...');
+    setStatus('Iniciando envio...');
+    setErrorType(null);
 
     try {
-      // Caminho organizado por UID do usuário para segurança
       const storageRef = ref(storage, `users/${user.uid}/documents/${Date.now()}_${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
       uploadTask.on('state_changed', 
         (snapshot) => {
           const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-          // Reservamos os últimos 20% para o processamento da IA
           setProgress(percent * 0.8);
-          setStatus('Sincronizando com Cloud Storage...');
+          setStatus('Enviando para o Cloud Storage...');
         }, 
         (error) => {
           console.error("Erro no Storage:", error);
           setUploading(false);
-          let msg = "Erro ao enviar arquivo.";
+          
           if (error.code === 'storage/unauthorized') {
-            msg = "Acesso negado. Ative o Firebase Storage no console e verifique as Rules.";
+            setErrorType('unauthorized');
+            toast({
+              title: "Acesso Negado (403)",
+              description: "O Storage está bloqueando o envio. Verifique as 'Rules' no console do Firebase.",
+              variant: "destructive"
+            });
+          } else {
+            setErrorType('general');
+            toast({
+              title: "Erro de Conexão",
+              description: error.message || "Erro ao enviar arquivo.",
+              variant: "destructive"
+            });
           }
-          toast({
-            title: "Erro no Cloud Storage",
-            description: msg,
-            variant: "destructive"
-          });
         },
         async () => {
           try {
-            setStatus('Gerando link de acesso...');
+            setStatus('Processando links...');
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             
             setProgress(85);
-            setStatus('IA analisando conteúdo...');
+            setStatus('IA analisando documento...');
             
-            // Simulação de extração de texto para a IA (em um app real, você extrairia o PDF aqui)
             const aiResults = await tagDocument({ 
-              documentContent: `Documento PDF: ${file.name}. Tamanho: ${(file.size / 1024).toFixed(2)} KB. Organizado em: ${state.folders.find(f => f.id === state.currentFolderId)?.name || 'Raiz'}.`
+              documentContent: `Documento PDF: ${file.name}. Tamanho: ${(file.size / 1024).toFixed(2)} KB.`
             });
 
-            setStatus('Salvando metadados...');
-            // 1. Salvar no Firestore através do store central
+            setStatus('Finalizando...');
             await addDocument({
               name: file.name,
               url: downloadURL,
@@ -108,34 +121,30 @@ export function UploadModal() {
               folderId: state.currentFolderId,
             });
 
-            // 2. Criar Notificação no Firestore
             await addDoc(collection(db, 'notifications'), {
               userId: user.uid,
-              message: `PDF "${file.name}" carregado e analisado pela IA com sucesso!`,
+              message: `Novo PDF "${file.name}" pronto!`,
               type: 'upload_success',
               createdAt: new Date().toISOString(),
               read: false
             });
 
             setProgress(100);
-            setStatus('Concluído!');
+            setStatus('Sucesso!');
             
             setTimeout(() => {
               setUploading(false);
               setOpen(false);
-              setProgress(0);
-              setStatus('');
               toast({
-                title: "Documento Sincronizado",
-                description: `${file.name} foi armazenado e analisado com sucesso.`,
+                title: "Documento salvo!",
+                description: `${file.name} já está disponível no seu dashboard.`,
               });
-            }, 800);
+            }, 1000);
           } catch (innerError: any) {
-            console.error("Erro no processamento pós-upload:", innerError);
             setUploading(false);
             toast({
-              title: "Erro no processamento",
-              description: "O arquivo foi enviado, mas houve erro ao analisar os dados.",
+              title: "Erro de Indexação",
+              description: "Arquivo enviado, mas falha ao salvar no banco de dados.",
               variant: "destructive"
             });
           }
@@ -143,18 +152,20 @@ export function UploadModal() {
       );
 
     } catch (error: any) {
-      console.error("Erro geral no upload:", error);
       setUploading(false);
       toast({
-        title: "Erro inesperado",
-        description: error.message || "Algo deu errado ao iniciar o processo.",
+        title: "Erro Inesperado",
+        description: "Falha ao iniciar upload.",
         variant: "destructive"
       });
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(val) => {
+      if (!uploading) setOpen(val);
+      if (!val) resetUpload();
+    }}>
       <DialogTrigger asChild>
         <Button className="gap-2 shadow-lg shadow-primary/20">
           <Upload className="w-4 h-4" /> Upload PDF
@@ -162,7 +173,7 @@ export function UploadModal() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Enviar para o Cloud Storage</DialogTitle>
+          <DialogTitle>Sincronizar PDF</DialogTitle>
         </DialogHeader>
         
         <div className="grid gap-6 py-4">
@@ -173,35 +184,44 @@ export function UploadModal() {
                 className="absolute inset-0 opacity-0 cursor-pointer" 
                 onChange={handleUpload}
                 accept=".pdf"
-                disabled={uploading}
               />
               <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center text-accent group-hover:scale-110 transition-transform">
                 <Upload className="w-8 h-8" />
               </div>
               <div className="text-center">
-                <p className="font-medium text-foreground">Clique para selecionar o PDF</p>
-                <p className="text-xs text-muted-foreground mt-1">O arquivo será armazenado com criptografia</p>
+                <p className="font-medium">Selecione seu arquivo PDF</p>
+                <p className="text-xs text-muted-foreground mt-1">Sincronização imediata com IA</p>
               </div>
             </div>
           ) : (
-            <div className="py-8 space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center animate-pulse">
-                  <FileText className="w-6 h-6 text-primary" />
+            <div className="py-4 space-y-6">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="font-bold flex items-center gap-2">
+                    {progress < 100 ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                    {status}
+                  </span>
+                  <span className="font-mono">{Math.round(progress)}%</span>
                 </div>
-                <div className="flex-1">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-bold text-foreground">{status}</span>
-                    <span className="text-xs font-mono text-muted-foreground">{Math.round(progress)}%</span>
-                  </div>
-                  <Progress value={progress} className="h-2" />
-                </div>
+                <Progress value={progress} className="h-2" />
               </div>
-              
-              <div className="bg-muted/30 p-4 rounded-lg flex gap-3 items-start border border-border/50">
-                <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Não feche esta janela. Estamos movendo seus dados para os servidores do Firebase e ativando a Inteligência Artificial para catalogação automática.
+
+              {errorType === 'unauthorized' && (
+                <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-lg flex gap-3 items-start">
+                  <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-destructive uppercase">Ação necessária no Firebase Console</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Seu Storage está bloqueando o acesso. Vá em <strong>Console &gt; Storage &gt; Rules</strong> e certifique-se de que as permissões permitem escrita para usuários autenticados.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-primary/5 p-4 rounded-lg flex gap-3 items-start border border-primary/10">
+                <AlertCircle className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <p className="text-[11px] text-muted-foreground">
+                  Estamos usando sua cota do plano Spark. O arquivo ficará seguro na infraestrutura do Google.
                 </p>
               </div>
             </div>
