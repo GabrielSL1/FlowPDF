@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -14,7 +13,7 @@ import {
   LayoutDashboard,
   HardDrive,
   LogOut,
-  FolderPlus
+  Info
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -41,10 +40,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function SidebarNav() {
   const { state, setCurrentFolder, addFolder, deleteFolder } = useFlowPDF();
@@ -57,14 +56,18 @@ export function SidebarNav() {
 
   const rootFolders = state.folders.filter(f => f.parentId === null);
 
+  // Cálculo fictício de uso (baseado na quantidade de documentos para fins visuais)
+  const usedStorageMB = state.documents.length * 1.2; // Simulação: 1.2MB por doc
+  const totalStorageMB = 5120; // 5GB em MB
+  const usagePercentage = Math.min((usedStorageMB / totalStorageMB) * 100, 100);
+
   const handleLogout = async () => {
-    localStorage.removeItem('flowpdf_demo_user');
     try {
       if (auth) await signOut(auth);
+      window.location.href = '/login';
     } catch (e) {
-      console.log("Deslogado.");
+      console.error("Erro ao sair:", e);
     }
-    window.location.href = '/login';
   };
 
   const openNewFolderDialog = (parentId: string | null) => {
@@ -85,7 +88,7 @@ export function SidebarNav() {
       } catch (err) {
         toast({
           title: "Erro",
-          description: "Não foi possível criar a pasta. Verifique o Modo de Teste no Firestore.",
+          description: "Não foi possível criar a pasta.",
           variant: "destructive"
         });
       }
@@ -152,14 +155,34 @@ export function SidebarNav() {
 
       <div className="p-6 space-y-4 shrink-0 bg-primary/95">
         <div className="bg-sidebar-accent/40 rounded-xl p-4 border border-sidebar-border/30">
-          <div className="flex items-center gap-2 mb-2">
-            <HardDrive className="w-4 h-4 text-accent" />
-            <span className="text-sm font-medium">Cloud Storage</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <HardDrive className="w-4 h-4 text-accent" />
+              <span className="text-sm font-medium">Armazenamento</span>
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-3.5 h-3.5 opacity-50 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p className="text-xs">Você está no Plano Gratuito (Spark) com 5GB de cota.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <div className="h-1.5 w-full bg-sidebar-border rounded-full overflow-hidden">
-            <div className="h-full bg-accent w-[15%]" />
+            <div 
+              className="h-full bg-accent transition-all duration-500" 
+              style={{ width: `${Math.max(usagePercentage, 5)}%` }} 
+            />
           </div>
-          <p className="text-[10px] mt-2 opacity-70 uppercase tracking-widest font-bold">Modo Firebase Ativo</p>
+          <div className="flex justify-between mt-2">
+            <p className="text-[10px] opacity-70 uppercase tracking-widest font-bold">
+              {usedStorageMB.toFixed(1)} MB / 5 GB
+            </p>
+            <p className="text-[10px] opacity-70 font-bold">{Math.round(usagePercentage)}%</p>
+          </div>
         </div>
 
         <Button 
@@ -264,25 +287,29 @@ function FolderItem({
           </Button>
           
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-6 w-6 text-white/50 hover:text-white hover:bg-destructive rounded-full bg-sidebar-background/80" 
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Trash2 className="w-3 h-3" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-white/50 hover:text-white hover:bg-destructive rounded-full bg-sidebar-background/80" 
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Excluir Pasta</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DialogContent onClick={(e) => e.stopPropagation()}>
               <AlertDialogHeader>
                 <AlertDialogTitle>Excluir Pasta?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Isso excluirá permanentemente <strong>{folder.name}</strong> e todos os itens dentro dela do seu banco de dados.
+                  Isso excluirá permanentemente <strong>{folder.name}</strong> e todos os itens dentro dela.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
+              <div className="flex justify-end gap-3 mt-4">
                 <AlertDialogAction 
                   className="bg-destructive hover:bg-destructive/90" 
                   onClick={(e) => {
@@ -292,8 +319,8 @@ function FolderItem({
                 >
                   Confirmar Exclusão
                 </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
+              </div>
+            </DialogContent>
           </AlertDialog>
         </div>
       </div>
