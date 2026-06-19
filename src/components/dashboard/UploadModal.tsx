@@ -46,8 +46,8 @@ export function UploadModal() {
 
     if (!storage) {
       toast({
-        title: "Erro Crítico",
-        description: "Serviço de Storage não inicializado no Firebase.",
+        title: "Erro de Conexão",
+        description: "O serviço de arquivos (Storage) não está pronto.",
         variant: "destructive"
       });
       return;
@@ -55,8 +55,8 @@ export function UploadModal() {
 
     if (file.type !== 'application/pdf') {
       toast({
-        title: "Tipo de arquivo inválido",
-        description: "Por favor, envie um documento PDF.",
+        title: "Arquivo Inválido",
+        description: "Por favor, selecione apenas arquivos PDF.",
         variant: "destructive"
       });
       return;
@@ -68,14 +68,15 @@ export function UploadModal() {
     setErrorType(null);
 
     try {
-      const storageRef = ref(storage, `users/${user.uid}/documents/${Date.now()}_${file.name}`);
+      const storagePath = `users/${user.uid}/documents/${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, storagePath);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
       uploadTask.on('state_changed', 
         (snapshot) => {
           const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-          setProgress(percent * 0.8);
-          setStatus('Enviando para o Cloud Storage...');
+          setProgress(percent * 0.7); // Deixa espaço para o processamento da IA
+          setStatus(`Enviando: ${percent}%`);
         }, 
         (error) => {
           console.error("Storage Error:", error);
@@ -85,71 +86,73 @@ export function UploadModal() {
           } else {
             setErrorType('general');
             toast({
-              title: "Erro no Upload",
-              description: error.message || "Não foi possível enviar o arquivo.",
+              title: "Erro no Cloud",
+              description: "Verifique sua conexão ou se o Storage está ativo no Console.",
               variant: "destructive"
             });
           }
         },
         async () => {
           try {
-            setStatus('Processando links...');
+            setStatus('Obtendo link seguro...');
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             
-            setProgress(85);
-            setStatus('IA analisando documento...');
+            setProgress(80);
+            setStatus('Inteligência Artificial analisando...');
             
+            // Simulação ou chamada real de extração de texto para IA
             const aiResults = await tagDocument({ 
-              documentContent: `Documento PDF: ${file.name}. Tamanho: ${(file.size / 1024).toFixed(2)} KB.`
+              documentContent: `Documento: ${file.name}. Tamanho: ${(file.size / 1024).toFixed(2)} KB. Usuário: ${user.email}`
             });
 
-            setStatus('Finalizando...');
-            addDocument({
+            setStatus('Salvando no Banco de Dados...');
+            
+            const docData = {
               name: file.name,
               url: downloadURL,
               thumbnailUrl: `https://picsum.photos/seed/${encodeURIComponent(file.name)}/300/400`,
               size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
               uploadDate: new Date().toISOString(),
-              type: 'pdf',
+              type: 'pdf' as const,
               tags: aiResults.tags,
               keywords: aiResults.keywords,
               folderId: state.currentFolderId,
-            });
+              userId: user.uid
+            };
 
+            await addDocument(docData);
+
+            // Criar notificação
             const notificationData = {
               userId: user.uid,
-              message: `Novo PDF "${file.name}" pronto!`,
+              message: `Upload concluído: ${file.name}`,
               type: 'upload_success' as const,
               createdAt: new Date().toISOString(),
               read: false
             };
 
             addDoc(collection(db, 'notifications'), notificationData)
-              .catch(async () => {
-                errorEmitter.emit('permission-error', new FirestorePermissionError({
-                  path: 'notifications',
-                  operation: 'create',
-                  requestResourceData: notificationData
-                }));
+              .catch(() => {
+                // Silencioso se for apenas notificação
               });
 
             setProgress(100);
-            setStatus('Sucesso!');
+            setStatus('Concluído com sucesso!');
             
             setTimeout(() => {
               setUploading(false);
               setOpen(false);
               toast({
-                title: "Documento salvo!",
-                description: `${file.name} já está disponível no seu dashboard.`,
+                title: "Sucesso!",
+                description: "Seu documento já está disponível na nuvem.",
               });
-            }, 1000);
+            }, 800);
           } catch (innerError: any) {
-            console.error("Post-upload processing error:", innerError);
+            console.error("Finalization error:", innerError);
             setUploading(false);
             toast({
-              title: "Erro no Processamento",
-              description: "O arquivo foi enviado, mas houve um erro ao processar a IA ou salvar no banco.",
+              title: "Erro no Banco",
+              description: "O arquivo subiu, mas não conseguimos salvar os dados. Verifique o Firestore.",
               variant: "destructive"
             });
           }
@@ -157,10 +160,10 @@ export function UploadModal() {
       );
 
     } catch (error: any) {
-      console.error("Upload start error:", error);
+      console.error("Critical error:", error);
       setUploading(false);
       toast({
-        title: "Erro Crítico",
+        title: "Falha Crítica",
         description: "Não foi possível iniciar o processo de upload.",
         variant: "destructive"
       });
@@ -179,7 +182,7 @@ export function UploadModal() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Sincronizar PDF</DialogTitle>
+          <DialogTitle>Gerenciador de Upload</DialogTitle>
         </DialogHeader>
         
         <div className="grid gap-6 py-4">
@@ -195,8 +198,8 @@ export function UploadModal() {
                 <Upload className="w-8 h-8" />
               </div>
               <div className="text-center">
-                <p className="font-medium">Selecione seu arquivo PDF</p>
-                <p className="text-xs text-muted-foreground mt-1">Sincronização imediata com IA</p>
+                <p className="font-medium">Clique ou arraste seu PDF</p>
+                <p className="text-xs text-muted-foreground mt-1">Armazenamento seguro em nuvem</p>
               </div>
             </div>
           ) : (
@@ -216,9 +219,9 @@ export function UploadModal() {
                 <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-lg flex gap-3 items-start">
                   <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <p className="text-xs font-bold text-destructive uppercase">Ação necessária no Firebase Console</p>
+                    <p className="text-xs font-bold text-destructive uppercase">Acesso Bloqueado</p>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Seu Storage está bloqueando o acesso. Vá em <strong>Console &gt; Storage &gt; Rules</strong> e certifique-se de que as permissões permitem escrita para usuários autenticados.
+                      Suas regras de Storage estão impedindo o upload. No Firebase Console, vá em Storage &gt; Rules e permita leitura/escrita para usuários logados.
                     </p>
                   </div>
                 </div>
@@ -227,7 +230,7 @@ export function UploadModal() {
               <div className="bg-primary/5 p-4 rounded-lg flex gap-3 items-start border border-primary/10">
                 <AlertCircle className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <p className="text-[11px] text-muted-foreground">
-                  Estamos usando sua cota do plano Spark. O arquivo ficará seguro na infraestrutura do Google.
+                  Dica: Arquivos muito grandes podem demorar mais para serem processados pela nossa IA.
                 </p>
               </div>
             </div>

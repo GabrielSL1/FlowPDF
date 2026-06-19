@@ -28,7 +28,7 @@ interface FlowPDFContextType {
 const FlowPDFContext = createContext<FlowPDFContextType | undefined>(undefined);
 
 export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
-  const { user, loading: userLoading } = useUser();
+  const { user } = useUser();
   const db = useFirestore();
   
   const [currentFolderId, setCurrentFolderId] = React.useState<string | null>(null);
@@ -76,7 +76,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
           path: 'folders',
           operation: 'create',
           requestResourceData: folderData,
-        } satisfies SecurityRuleContext));
+        }));
       });
   }, [db, user]);
 
@@ -128,7 +128,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
       uploadDate: new Date().toISOString()
     };
 
-    addDoc(collection(db, 'documents'), finalDocData)
+    return addDoc(collection(db, 'documents'), finalDocData)
       .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: 'documents',
