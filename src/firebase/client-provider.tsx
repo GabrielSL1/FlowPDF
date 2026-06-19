@@ -8,6 +8,7 @@ import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth } from 'firebase/auth';
 import { FirebaseStorage } from 'firebase/storage';
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 export function FirebaseClientProvider({ children }: { children: React.ReactNode }) {
   const [instances, setInstances] = useState<{
@@ -22,7 +23,11 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
     setInstances({ app, firestore, auth, storage });
   }, []);
 
-  if (!instances) return null;
+  if (!instances) return (
+    <div className="flex h-screen items-center justify-center bg-background">
+      <div className="animate-pulse text-primary font-bold">Iniciando Firebase...</div>
+    </div>
+  );
 
   return (
     <FirebaseProvider 
@@ -31,6 +36,7 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
       auth={instances.auth}
       storage={instances.storage}
     >
+      <FirebaseErrorListener />
       {children}
     </FirebaseProvider>
   );

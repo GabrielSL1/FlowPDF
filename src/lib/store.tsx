@@ -3,8 +3,7 @@
 
 import React, { createContext, useContext, useCallback, useMemo } from 'react';
 import { Document, Folder, DocuFlowState } from './types';
-import { useUser } from '@/firebase';
-import { useFirestore } from '@/firebase/provider';
+import { useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { 
   collection, 
   query, 
@@ -14,7 +13,6 @@ import {
   doc, 
   orderBy 
 } from 'firebase/firestore';
-import { useCollection } from '@/firebase/firestore/use-collection';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
@@ -37,15 +35,25 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   const [currentFolderId, setCurrentFolderId] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  const foldersQuery = useMemo(() => 
-    user ? query(collection(db, 'folders'), where('userId', '==', user.uid), orderBy('createdAt', 'asc')) : null
-  , [db, user]);
+  const foldersQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(
+      collection(db, 'folders'), 
+      where('userId', '==', user.uid), 
+      orderBy('createdAt', 'asc')
+    );
+  }, [db, user]);
   
   const { data: foldersData } = useCollection<Folder>(foldersQuery);
 
-  const docsQuery = useMemo(() => 
-    user ? query(collection(db, 'documents'), where('userId', '==', user.uid), orderBy('uploadDate', 'desc')) : null
-  , [db, user]);
+  const docsQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(
+      collection(db, 'documents'), 
+      where('userId', '==', user.uid), 
+      orderBy('uploadDate', 'desc')
+    );
+  }, [db, user]);
   
   const { data: documentsData } = useCollection<Document>(docsQuery);
 
@@ -57,7 +65,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   }), [foldersData, documentsData, currentFolderId, searchQuery]);
 
   const addFolder = useCallback(async (name: string, parentId: string | null) => {
-    if (!user) return;
+    if (!user || !db) return;
     const folderData = {
       name: name.trim(),
       parentId,
@@ -66,18 +74,17 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     };
 
     addDoc(collection(db, 'folders'), folderData)
-      .catch(async (error) => {
-        const permissionError = new FirestorePermissionError({
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: 'folders',
           operation: 'create',
           requestResourceData: folderData,
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
+        } satisfies SecurityRuleContext));
       });
   }, [db, user]);
 
   const deleteFolder = useCallback(async (id: string) => {
-    if (!user) return;
+    if (!user || !db) return;
     
     const findFolderIds = (parentId: string, allFolders: Folder[]): string[] => {
       let ids = [parentId];
@@ -117,7 +124,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   }, [db, user, state.folders, state.documents, currentFolderId]);
 
   const addDocument = useCallback(async (docData: Omit<Document, 'id'>) => {
-    if (!user) return;
+    if (!user || !db) return;
     const finalDocData = {
       ...docData,
       userId: user.uid,
@@ -135,7 +142,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   }, [db, user]);
 
   const deleteDocument = useCallback(async (id: string) => {
-    if (!user) return;
+    if (!user || !db) return;
     deleteDoc(doc(db, 'documents', id))
       .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
