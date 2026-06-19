@@ -18,6 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export function UploadModal() {
   const [open, setOpen] = useState(false);
@@ -77,23 +79,11 @@ export function UploadModal() {
           setStatus('Enviando para o Cloud Storage...');
         }, 
         (error) => {
-          console.error("Erro no Storage:", error);
           setUploading(false);
-          
           if (error.code === 'storage/unauthorized') {
             setErrorType('unauthorized');
-            toast({
-              title: "Acesso Negado (403)",
-              description: "O Storage está bloqueando o envio. Verifique as 'Rules' no console do Firebase.",
-              variant: "destructive"
-            });
           } else {
             setErrorType('general');
-            toast({
-              title: "Erro de Conexão",
-              description: error.message || "Erro ao enviar arquivo.",
-              variant: "destructive"
-            });
           }
         },
         async () => {
@@ -109,7 +99,7 @@ export function UploadModal() {
             });
 
             setStatus('Finalizando...');
-            await addDocument({
+            addDocument({
               name: file.name,
               url: downloadURL,
               thumbnailUrl: `https://picsum.photos/seed/${encodeURIComponent(file.name)}/300/400`,
@@ -121,13 +111,22 @@ export function UploadModal() {
               folderId: state.currentFolderId,
             });
 
-            await addDoc(collection(db, 'notifications'), {
+            const notificationData = {
               userId: user.uid,
               message: `Novo PDF "${file.name}" pronto!`,
               type: 'upload_success',
               createdAt: new Date().toISOString(),
               read: false
-            });
+            };
+
+            addDoc(collection(db, 'notifications'), notificationData)
+              .catch(async () => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                  path: 'notifications',
+                  operation: 'create',
+                  requestResourceData: notificationData
+                }));
+              });
 
             setProgress(100);
             setStatus('Sucesso!');
@@ -142,22 +141,12 @@ export function UploadModal() {
             }, 1000);
           } catch (innerError: any) {
             setUploading(false);
-            toast({
-              title: "Erro de Indexação",
-              description: "Arquivo enviado, mas falha ao salvar no banco de dados.",
-              variant: "destructive"
-            });
           }
         }
       );
 
     } catch (error: any) {
       setUploading(false);
-      toast({
-        title: "Erro Inesperado",
-        description: "Falha ao iniciar upload.",
-        variant: "destructive"
-      });
     }
   };
 

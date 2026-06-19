@@ -15,6 +15,8 @@ import {
   orderBy 
 } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 interface FlowPDFContextType {
   state: DocuFlowState;
@@ -35,14 +37,12 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   const [currentFolderId, setCurrentFolderId] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  // Carrega pastas do usuário em tempo real do Firestore
   const foldersQuery = useMemo(() => 
     user ? query(collection(db, 'folders'), where('userId', '==', user.uid), orderBy('createdAt', 'asc')) : null
   , [db, user]);
   
   const { data: foldersData } = useCollection<Folder>(foldersQuery);
 
-  // Carrega documentos do usuário em tempo real do Firestore
   const docsQuery = useMemo(() => 
     user ? query(collection(db, 'documents'), where('userId', '==', user.uid), orderBy('uploadDate', 'desc')) : null
   , [db, user]);
@@ -58,23 +58,27 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
 
   const addFolder = useCallback(async (name: string, parentId: string | null) => {
     if (!user) return;
-    try {
-      await addDoc(collection(db, 'folders'), {
-        name: name.trim(),
-        parentId,
-        userId: user.uid,
-        createdAt: new Date().toISOString()
+    const folderData = {
+      name: name.trim(),
+      parentId,
+      userId: user.uid,
+      createdAt: new Date().toISOString()
+    };
+
+    addDoc(collection(db, 'folders'), folderData)
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: 'folders',
+          operation: 'create',
+          requestResourceData: folderData,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
       });
-    } catch (error) {
-      console.error("Erro ao criar pasta no Firestore:", error);
-      throw error;
-    }
   }, [db, user]);
 
   const deleteFolder = useCallback(async (id: string) => {
     if (!user) return;
     
-    // Lógica recursiva para encontrar todos os IDs de subpastas para deletar
     const findFolderIds = (parentId: string, allFolders: Folder[]): string[] => {
       let ids = [parentId];
       const children = allFolders.filter(f => f.parentId === parentId);
@@ -86,46 +90,59 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
 
     const folderIdsToDelete = findFolderIds(id, state.folders);
 
-    try {
-      // Deleta todos os documentos associados a essas pastas
-      for (const fId of folderIdsToDelete) {
-        const docsInFolder = state.documents.filter(d => d.folderId === fId);
-        for (const d of docsInFolder) {
-          await deleteDoc(doc(db, 'documents', d.id));
-        }
-        // Deleta a pasta
-        await deleteDoc(doc(db, 'folders', fId));
-      }
-      
-      // Se a pasta atual for uma das deletadas, volta para a raiz
-      if (currentFolderId && folderIdsToDelete.includes(currentFolderId)) {
-        setCurrentFolderId(null);
-      }
-    } catch (error) {
-      console.error("Erro na exclusão recursiva:", error);
+    folderIdsToDelete.forEach(fId => {
+      const docsInFolder = state.documents.filter(d => d.folderId === fId);
+      docsInFolder.forEach(d => {
+        deleteDoc(doc(db, 'documents', d.id))
+          .catch(async () => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: `documents/${d.id}`,
+              operation: 'delete'
+            }));
+          });
+      });
+
+      deleteDoc(doc(db, 'folders', fId))
+        .catch(async () => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: `folders/${fId}`,
+            operation: 'delete'
+          }));
+        });
+    });
+    
+    if (currentFolderId && folderIdsToDelete.includes(currentFolderId)) {
+      setCurrentFolderId(null);
     }
   }, [db, user, state.folders, state.documents, currentFolderId]);
 
   const addDocument = useCallback(async (docData: Omit<Document, 'id'>) => {
     if (!user) return;
-    try {
-      await addDoc(collection(db, 'documents'), {
-        ...docData,
-        userId: user.uid,
-        uploadDate: new Date().toISOString()
+    const finalDocData = {
+      ...docData,
+      userId: user.uid,
+      uploadDate: new Date().toISOString()
+    };
+
+    addDoc(collection(db, 'documents'), finalDocData)
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'documents',
+          operation: 'create',
+          requestResourceData: finalDocData,
+        }));
       });
-    } catch (error) {
-      console.error("Erro ao salvar documento no Firestore:", error);
-    }
   }, [db, user]);
 
   const deleteDocument = useCallback(async (id: string) => {
     if (!user) return;
-    try {
-      await deleteDoc(doc(db, 'documents', id));
-    } catch (error) {
-      console.error("Erro ao deletar documento no Firestore:", error);
-    }
+    deleteDoc(doc(db, 'documents', id))
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `documents/${id}`,
+          operation: 'delete'
+        }));
+      });
   }, [db, user]);
 
   const value = useMemo(() => ({
