@@ -56,8 +56,9 @@ export function DocumentGrid() {
                   <Image 
                     src={doc.thumbnailUrl || `https://picsum.photos/seed/${doc.id}/300/400`}
                     alt={doc.name}
-                    fill
-                    className="object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                    width={300}
+                    height={400}
+                    className="object-cover opacity-90 group-hover:opacity-100 transition-opacity w-full h-full"
                     data-ai-hint="document paper"
                   />
                   {/* Visual Paper Texture & Gradient */}
