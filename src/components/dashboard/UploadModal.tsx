@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -75,15 +74,22 @@ export function UploadModal() {
       uploadTask.on('state_changed', 
         (snapshot) => {
           const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          // Reservamos os últimos 20% para o processamento da IA e banco de dados
           setProgress(percent * 0.8);
           setStatus('Enviando para o Cloud Storage...');
         }, 
         (error) => {
+          console.error("Storage Error:", error);
           setUploading(false);
           if (error.code === 'storage/unauthorized') {
             setErrorType('unauthorized');
           } else {
             setErrorType('general');
+            toast({
+              title: "Erro no Upload",
+              description: error.message || "Não foi possível enviar o arquivo.",
+              variant: "destructive"
+            });
           }
         },
         async () => {
@@ -140,13 +146,25 @@ export function UploadModal() {
               });
             }, 1000);
           } catch (innerError: any) {
+            console.error("Post-upload processing error:", innerError);
             setUploading(false);
+            toast({
+              title: "Erro no Processamento",
+              description: "O arquivo foi enviado, mas houve um erro ao processar a IA ou salvar no banco.",
+              variant: "destructive"
+            });
           }
         }
       );
 
     } catch (error: any) {
+      console.error("Upload start error:", error);
       setUploading(false);
+      toast({
+        title: "Erro Crítico",
+        description: "Não foi possível iniciar o processo de upload.",
+        variant: "destructive"
+      });
     }
   };
 

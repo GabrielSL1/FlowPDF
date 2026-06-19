@@ -40,6 +40,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -270,14 +271,16 @@ function FolderItem({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-6 w-6 text-white/50 hover:text-white hover:bg-destructive rounded-full bg-sidebar-background/80" 
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 text-white/50 hover:text-white hover:bg-destructive rounded-full bg-sidebar-background/80" 
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </AlertDialogTrigger>
                 </TooltipTrigger>
                 <TooltipContent>Excluir</TooltipContent>
               </Tooltip>
@@ -298,7 +301,7 @@ function FolderItem({
                     onDelete(folder.id);
                   }}
                 >
-                  Confirmar Exclusão
+                  Confirmar Excluir
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

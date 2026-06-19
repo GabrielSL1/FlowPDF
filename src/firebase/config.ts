@@ -1,6 +1,7 @@
 /**
  * Configuração oficial do Firebase para o projeto FlowPDF.
  * Atualizado com a API Key real fornecida pelo usuário.
+ * Salt: refresh_rules_v3
  */
 
 export const firebaseConfig = {
