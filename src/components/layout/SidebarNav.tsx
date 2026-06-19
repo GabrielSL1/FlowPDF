@@ -31,16 +31,12 @@ export function SidebarNav() {
   const rootFolders = state.folders.filter(f => f.parentId === null);
 
   const handleLogout = async () => {
-    // Remove usuário de teste se houver
     localStorage.removeItem('flowpdf_demo_user');
-    
-    // Tenta deslogar do Firebase
     try {
       if (auth) await signOut(auth);
     } catch (e) {
       console.log("Deslogado do modo demo.");
     }
-    
     window.location.href = '/login';
   };
 
@@ -74,7 +70,7 @@ export function SidebarNav() {
               size="icon" 
               className="h-5 w-5 hover:bg-sidebar-accent"
               onClick={() => {
-                const name = prompt('Nome da Pasta:');
+                const name = prompt('Nome da nova pasta raiz:');
                 if (name) addFolder(name, null);
               }}
             >
@@ -92,7 +88,7 @@ export function SidebarNav() {
                 onSelect={setCurrentFolder}
                 onDelete={deleteFolder}
                 onAddSubfolder={(parentId) => {
-                  const name = prompt('Nome da Subpasta:');
+                  const name = prompt('Nome da subpasta:');
                   if (name) addFolder(name, parentId);
                 }}
               />
@@ -147,11 +143,11 @@ function FolderItem({
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div className="group flex items-center">
+      <div className="group flex items-center pr-2">
         <CollapsibleTrigger asChild>
           <Button 
             variant="ghost" 
-            className="p-1 h-7 w-7 hover:bg-sidebar-accent"
+            className="p-1 h-7 w-7 hover:bg-sidebar-accent shrink-0"
             disabled={children.length === 0}
           >
             {children.length > 0 && (
@@ -162,36 +158,61 @@ function FolderItem({
         <Button
           variant="ghost"
           className={cn(
-            "flex-1 justify-start gap-2 h-9 text-sm font-medium px-2 transition-colors",
+            "flex-1 justify-start gap-2 h-9 text-sm font-medium px-2 transition-colors overflow-hidden",
             isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/50"
           )}
           onClick={() => onSelect(folder.id)}
         >
-          <FolderIcon className={cn("w-4 h-4", isActive ? "text-accent fill-accent/20" : "text-accent")} />
-          {folder.name}
+          <FolderIcon className={cn("w-4 h-4 shrink-0", isActive ? "text-accent fill-accent/20" : "text-accent")} />
+          <span className="truncate">{folder.name}</span>
         </Button>
-        <div className="opacity-0 group-hover:opacity-100 flex gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onAddSubfolder(folder.id)}>
+        
+        <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 ml-1 transition-opacity">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6 hover:bg-sidebar-accent" 
+            title="Adicionar subpasta"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddSubfolder(folder.id);
+              setIsOpen(true);
+            }}
+          >
             <Plus className="w-3 h-3" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(folder.id)}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6 text-destructive/70 hover:text-destructive hover:bg-destructive/10" 
+            title="Excluir pasta"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (confirm(`Tem certeza que deseja excluir a pasta "${folder.name}" e todo seu conteúdo?`)) {
+                onDelete(folder.id);
+              }
+            }}
+          >
             <Trash2 className="w-3 h-3" />
           </Button>
         </div>
       </div>
-      <CollapsibleContent className="pl-6 border-l border-sidebar-border/30 ml-4 space-y-1 mt-1">
-        {children.map(child => (
-          <FolderItem 
-            key={child.id} 
-            folder={child} 
-            allFolders={allFolders} 
-            currentFolderId={currentFolderId}
-            onSelect={onSelect}
-            onDelete={onDelete}
-            onAddSubfolder={onAddSubfolder}
-          />
-        ))}
-      </CollapsibleContent>
+      
+      {children.length > 0 && (
+        <CollapsibleContent className="pl-6 border-l border-sidebar-border/30 ml-3.5 space-y-1 mt-1">
+          {children.map(child => (
+            <FolderItem 
+              key={child.id} 
+              folder={child} 
+              allFolders={allFolders} 
+              currentFolderId={currentFolderId}
+              onSelect={onSelect}
+              onDelete={onDelete}
+              onAddSubfolder={onAddSubfolder}
+            />
+          ))}
+        </CollapsibleContent>
+      )}
     </Collapsible>
   );
 }

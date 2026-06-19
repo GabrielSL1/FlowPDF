@@ -66,11 +66,25 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteFolder = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      folders: prev.folders.filter(f => f.id !== id),
-      documents: prev.documents.filter(d => d.folderId !== id),
-    }));
+    setState(prev => {
+      const findChildIds = (parentId: string): string[] => {
+        const children = prev.folders.filter(f => f.parentId === parentId);
+        let ids = children.map(c => c.id);
+        children.forEach(c => {
+          ids = [...ids, ...findChildIds(c.id)];
+        });
+        return ids;
+      };
+
+      const idsToRemove = [id, ...findChildIds(id)];
+
+      return {
+        ...prev,
+        folders: prev.folders.filter(f => !idsToRemove.includes(f.id)),
+        documents: prev.documents.filter(d => !d.folderId || !idsToRemove.includes(d.folderId)),
+        currentFolderId: idsToRemove.includes(prev.currentFolderId as string) ? null : prev.currentFolderId
+      };
+    });
   };
 
   const addDocument = (doc: Document) => {
