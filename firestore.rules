@@ -6,30 +6,28 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Regras genéricas para dados do usuário
-    // Permite qualquer operação se o usuário estiver logado e for o dono do dado
+    // Regras para Pastas
     match /folders/{folderId} {
-      allow read, write: if isAuthenticated() && (
-        (resource == null && request.resource.data.userId == request.auth.uid) ||
-        (resource != null && resource.data.userId == request.auth.uid)
-      );
+      allow read, list: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
+    // Regras para Documentos
     match /documents/{docId} {
-      allow read, write: if isAuthenticated() && (
-        (resource == null && request.resource.data.userId == request.auth.uid) ||
-        (resource != null && resource.data.userId == request.auth.uid)
-      );
+      allow read, list: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
+    // Regras para Notificações
     match /notifications/{notifId} {
-      allow read, write: if isAuthenticated() && (
-        (resource == null && request.resource.data.userId == request.auth.uid) ||
-        (resource != null && resource.data.userId == request.auth.uid)
-      );
+      allow read, list: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
     // Salt para forçar redeploy e limpar cache de permissões do Firestore
-    // force_redeploy_v15_final_permissions_fix
+    // force_redeploy_v20_final_permissions_fix_stable
   }
 }

@@ -11,14 +11,12 @@ import {
   DialogTrigger 
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Loader2, AlertCircle, XCircle } from 'lucide-react';
+import { Upload, FileText, Loader2, AlertCircle, XCircle, CheckCircle2 } from 'lucide-react';
 import { tagDocument } from '@/ai/flows/ai-document-tagging';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 export function UploadModal() {
   const [open, setOpen] = useState(false);
@@ -46,8 +44,8 @@ export function UploadModal() {
 
     if (!storage) {
       toast({
-        title: "Erro de Conexão",
-        description: "O serviço de arquivos (Storage) não está pronto.",
+        title: "Erro de Configuração",
+        description: "O serviço de Storage não foi detectado. Ative-o no Firebase Console.",
         variant: "destructive"
       });
       return;
@@ -56,7 +54,7 @@ export function UploadModal() {
     if (file.type !== 'application/pdf') {
       toast({
         title: "Arquivo Inválido",
-        description: "Por favor, selecione apenas arquivos PDF.",
+        description: "Apenas arquivos PDF são permitidos.",
         variant: "destructive"
       });
       return;
@@ -64,53 +62,56 @@ export function UploadModal() {
 
     setUploading(true);
     setProgress(0);
-    setStatus('Iniciando envio...');
+    setStatus('Iniciando conexão segura...');
     setErrorType(null);
 
     try {
-      const storagePath = `users/${user.uid}/documents/${Date.now()}_${file.name}`;
+      const storagePath = `users/${user.uid}/documents/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
       const storageRef = ref(storage, storagePath);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
       uploadTask.on('state_changed', 
         (snapshot) => {
           const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-          setProgress(percent * 0.7); // Deixa espaço para o processamento da IA
-          setStatus(`Enviando: ${percent}%`);
+          setProgress(percent * 0.8); // 80% para upload, 20% para IA/DB
+          setStatus(`Enviando arquivo: ${percent}%`);
         }, 
         (error) => {
-          console.error("Storage Error:", error);
+          console.error("Storage Error Details:", error);
           setUploading(false);
           if (error.code === 'storage/unauthorized') {
             setErrorType('unauthorized');
           } else {
             setErrorType('general');
             toast({
-              title: "Erro no Cloud",
-              description: "Verifique sua conexão ou se o Storage está ativo no Console.",
+              title: "Falha no Upload",
+              description: "O Firebase recusou a conexão. Verifique se o Storage está ativo.",
               variant: "destructive"
             });
           }
         },
         async () => {
           try {
-            setStatus('Obtendo link seguro...');
+            setStatus('Processando metadados...');
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             
-            setProgress(80);
-            setStatus('Inteligência Artificial analisando...');
+            setProgress(85);
+            setStatus('IA Analisando conteúdo...');
             
-            // Simulação ou chamada real de extração de texto para IA
+            // Chamar IA para extrair tags
             const aiResults = await tagDocument({ 
-              documentContent: `Documento: ${file.name}. Tamanho: ${(file.size / 1024).toFixed(2)} KB. Usuário: ${user.email}`
+              documentContent: `Documento: ${file.name}. Tamanho: ${(file.size / 1024).toFixed(2)} KB. Usuário ID: ${user.uid}`
+            }).catch(e => {
+              console.warn("IA Error:", e);
+              return { tags: ['Geral'], keywords: [file.name] };
             });
 
-            setStatus('Salvando no Banco de Dados...');
+            setStatus('Sincronizando com o Cloud...');
             
             const docData = {
               name: file.name,
               url: downloadURL,
-              thumbnailUrl: `https://picsum.photos/seed/${encodeURIComponent(file.name)}/300/400`,
+              thumbnailUrl: `https://picsum.photos/seed/${user.uid}_${Date.now()}/300/400`,
               size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
               uploadDate: new Date().toISOString(),
               type: 'pdf' as const,
@@ -122,37 +123,32 @@ export function UploadModal() {
 
             await addDocument(docData);
 
-            // Criar notificação
-            const notificationData = {
+            // Criar notificação de sucesso
+            await addDoc(collection(db, 'notifications'), {
               userId: user.uid,
-              message: `Upload concluído: ${file.name}`,
-              type: 'upload_success' as const,
+              message: `Documento "${file.name}" enviado e processado com sucesso.`,
+              type: 'upload_success',
               createdAt: new Date().toISOString(),
               read: false
-            };
-
-            addDoc(collection(db, 'notifications'), notificationData)
-              .catch(() => {
-                // Silencioso se for apenas notificação
-              });
+            }).catch(() => {});
 
             setProgress(100);
-            setStatus('Concluído com sucesso!');
+            setStatus('Concluído!');
             
             setTimeout(() => {
               setUploading(false);
               setOpen(false);
               toast({
-                title: "Sucesso!",
-                description: "Seu documento já está disponível na nuvem.",
+                title: "Documento Disponível",
+                description: "O arquivo foi salvo e indexado com sucesso.",
               });
-            }, 800);
+            }, 500);
           } catch (innerError: any) {
-            console.error("Finalization error:", innerError);
+            console.error("DB Save Error:", innerError);
             setUploading(false);
             toast({
-              title: "Erro no Banco",
-              description: "O arquivo subiu, mas não conseguimos salvar os dados. Verifique o Firestore.",
+              title: "Erro ao Salvar",
+              description: "O arquivo subiu, mas não conseguimos registrar no banco.",
               variant: "destructive"
             });
           }
@@ -160,11 +156,11 @@ export function UploadModal() {
       );
 
     } catch (error: any) {
-      console.error("Critical error:", error);
+      console.error("Critical Upload Error:", error);
       setUploading(false);
       toast({
-        title: "Falha Crítica",
-        description: "Não foi possível iniciar o processo de upload.",
+        title: "Erro Crítico",
+        description: "Não foi possível iniciar o processo.",
         variant: "destructive"
       });
     }
@@ -182,7 +178,7 @@ export function UploadModal() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Gerenciador de Upload</DialogTitle>
+          <DialogTitle>Enviar para o Fluxo</DialogTitle>
         </DialogHeader>
         
         <div className="grid gap-6 py-4">
@@ -198,8 +194,8 @@ export function UploadModal() {
                 <Upload className="w-8 h-8" />
               </div>
               <div className="text-center">
-                <p className="font-medium">Clique ou arraste seu PDF</p>
-                <p className="text-xs text-muted-foreground mt-1">Armazenamento seguro em nuvem</p>
+                <p className="font-medium">Selecione seu arquivo PDF</p>
+                <p className="text-xs text-muted-foreground mt-1">Armazenamento em nuvem criptografado</p>
               </div>
             </div>
           ) : (
@@ -207,7 +203,7 @@ export function UploadModal() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="font-bold flex items-center gap-2">
-                    {progress < 100 ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                    {progress < 100 ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3 text-green-500" />}
                     {status}
                   </span>
                   <span className="font-mono">{Math.round(progress)}%</span>
@@ -219,9 +215,9 @@ export function UploadModal() {
                 <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-lg flex gap-3 items-start">
                   <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <p className="text-xs font-bold text-destructive uppercase">Acesso Bloqueado</p>
+                    <p className="text-xs font-bold text-destructive uppercase">Acesso Bloqueado pelo Cloud</p>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Suas regras de Storage estão impedindo o upload. No Firebase Console, vá em Storage &gt; Rules e permita leitura/escrita para usuários logados.
+                      Seu Firebase Storage está bloqueando o acesso. Vá em <strong>Storage &gt; Rules</strong> no Console e certifique-se de que a leitura/escrita está permitida para usuários logados.
                     </p>
                   </div>
                 </div>
@@ -230,7 +226,7 @@ export function UploadModal() {
               <div className="bg-primary/5 p-4 rounded-lg flex gap-3 items-start border border-primary/10">
                 <AlertCircle className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <p className="text-[11px] text-muted-foreground">
-                  Dica: Arquivos muito grandes podem demorar mais para serem processados pela nossa IA.
+                  Nota: Durante o upload, nossa IA extrai automaticamente tags e palavras-chave para facilitar sua busca.
                 </p>
               </div>
             </div>

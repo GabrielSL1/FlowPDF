@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -29,14 +28,22 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       (snapshot: QuerySnapshot<T>) => {
         setData(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
         setLoading(false);
+        setError(null);
       },
-      async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: (query as any)._query?.path?.toString() || 'unknown',
-          operation: 'list',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        setError(permissionError);
+      async (serverError: any) => {
+        // Se for erro de permissão, emite o erro contextual
+        if (serverError.code === 'permission-denied') {
+          const permissionError = new FirestorePermissionError({
+            path: (query as any)._query?.path?.toString() || 'unknown',
+            operation: 'list',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          setError(permissionError);
+        } else {
+          // Para outros erros (como falta de índices), logamos no console para debug
+          console.error("Firestore Hook Error:", serverError);
+          setError(serverError);
+        }
         setLoading(false);
       }
     );
