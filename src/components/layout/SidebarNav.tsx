@@ -2,18 +2,19 @@
 
 import React, { useState } from 'react';
 import { useFlowPDF } from '@/lib/store';
-import { useAuth } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { 
-  Folder as FolderIcon, 
-  ChevronRight, 
-  ChevronDown, 
-  Plus, 
-  Trash2, 
+import {
+  Folder as FolderIcon,
+  ChevronRight,
+  ChevronDown,
+  Plus,
+  Trash2,
   LayoutDashboard,
   HardDrive,
   LogOut,
-  Info
+  Info,
+  Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,8 @@ import {
 } from "@/components/ui/collapsible";
 import { Folder } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MembersDialog } from '@/components/dashboard/MembersDialog';
 import {
   Dialog,
   DialogContent,
@@ -49,11 +52,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 export function SidebarNav() {
   const { state, setCurrentFolder, addFolder, deleteFolder } = useFlowPDF();
   const auth = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
-  
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [parentFolderId, setParentFolderId] = useState<string | null>(null);
+  const [newFolderPublic, setNewFolderPublic] = useState(false);
 
   const rootFolders = state.folders.filter(f => f.parentId === null);
 
@@ -73,13 +78,14 @@ export function SidebarNav() {
   const openNewFolderDialog = (parentId: string | null) => {
     setParentFolderId(parentId);
     setNewFolderName("");
+    setNewFolderPublic(false);
     setIsDialogOpen(true);
   };
 
   const handleCreateFolder = async () => {
     if (newFolderName.trim()) {
       try {
-        await addFolder(newFolderName.trim(), parentFolderId);
+        await addFolder(newFolderName.trim(), parentFolderId, newFolderPublic);
         setIsDialogOpen(false);
         toast({
           title: "Pasta Criada",
@@ -132,11 +138,12 @@ export function SidebarNav() {
 
           <div className="space-y-1 mt-2">
             {rootFolders.map(folder => (
-              <FolderItem 
-                key={folder.id} 
-                folder={folder} 
-                allFolders={state.folders} 
+              <FolderItem
+                key={folder.id}
+                folder={folder}
+                allFolders={state.folders}
                 currentFolderId={state.currentFolderId}
+                currentUserId={user?.uid}
                 onSelect={setCurrentFolder}
                 onDelete={deleteFolder}
                 onAddSubfolder={openNewFolderDialog}
@@ -146,7 +153,9 @@ export function SidebarNav() {
         </nav>
       </div>
 
-      <div className="p-6 space-y-4 shrink-0 bg-primary/95">
+      <div className="p-6 space-y-4 shrink-0 bg-sidebar">
+        <MembersDialog />
+
         <div className="bg-sidebar-accent/40 rounded-xl p-4 border border-sidebar-border/30">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -197,6 +206,13 @@ export function SidebarNav() {
                 }}
               />
             </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={newFolderPublic}
+                onCheckedChange={(checked) => setNewFolderPublic(checked === true)}
+              />
+              <span>Tornar pública (visível para todos os usuários)</span>
+            </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
@@ -208,17 +224,19 @@ export function SidebarNav() {
   );
 }
 
-function FolderItem({ 
-  folder, 
-  allFolders, 
-  currentFolderId, 
+function FolderItem({
+  folder,
+  allFolders,
+  currentFolderId,
+  currentUserId,
   onSelect,
   onDelete,
   onAddSubfolder
-}: { 
-  folder: Folder; 
-  allFolders: Folder[]; 
+}: {
+  folder: Folder;
+  allFolders: Folder[];
   currentFolderId: string | null;
+  currentUserId?: string;
   onSelect: (id: string | null) => void;
   onDelete: (id: string) => void;
   onAddSubfolder: (parentId: string) => void;
@@ -226,6 +244,7 @@ function FolderItem({
   const [isOpen, setIsOpen] = React.useState(false);
   const children = allFolders.filter(f => f.parentId === folder.id);
   const isActive = currentFolderId === folder.id;
+  const canDelete = !folder.isPublic || folder.userId === currentUserId;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -251,13 +270,18 @@ function FolderItem({
         >
           <FolderIcon className={cn("w-4 h-4 shrink-0", isActive ? "text-accent fill-accent/20" : "text-accent")} />
           <span className="truncate">{folder.name}</span>
+          {folder.isPublic && (
+            <span title="Pasta pública">
+              <Globe className="w-3 h-3 shrink-0 opacity-60" />
+            </span>
+          )}
         </Button>
-        
+
         <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 absolute right-1">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-6 w-6 hover:bg-sidebar-accent rounded-full bg-sidebar-background/80" 
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 hover:bg-sidebar-accent rounded-full bg-sidebar-background/80"
             onClick={(e) => {
               e.stopPropagation();
               onAddSubfolder(folder.id);
@@ -266,57 +290,60 @@ function FolderItem({
           >
             <Plus className="w-3 h-3" />
           </Button>
-          
-          <AlertDialog>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <AlertDialogTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-6 w-6 text-white/50 hover:text-white hover:bg-destructive rounded-full bg-sidebar-background/80" 
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </AlertDialogTrigger>
-                </TooltipTrigger>
-                <TooltipContent>Excluir</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Excluir Pasta?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Isso excluirá <strong>{folder.name}</strong> e todos os arquivos dentro dela permanentemente.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
-                <AlertDialogAction 
-                  className="bg-destructive hover:bg-destructive/90" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(folder.id);
-                  }}
-                >
-                  Confirmar Excluir
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+
+          {canDelete && (
+            <AlertDialog>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-white/50 hover:text-white hover:bg-destructive rounded-full bg-sidebar-background/80"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </AlertDialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Excluir</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir Pasta?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Isso excluirá <strong>{folder.name}</strong> e todos os arquivos dentro dela permanentemente.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive hover:bg-destructive/90"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(folder.id);
+                    }}
+                  >
+                    Confirmar Excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
-      
+
       {children.length > 0 && (
         <CollapsibleContent className="pl-4 border-l border-sidebar-border/30 ml-3 space-y-1 mt-1">
           {children.map(child => (
-            <FolderItem 
-              key={child.id} 
-              folder={child} 
-              allFolders={allFolders} 
+            <FolderItem
+              key={child.id}
+              folder={child}
+              allFolders={allFolders}
               currentFolderId={currentFolderId}
+              currentUserId={currentUserId}
               onSelect={onSelect}
               onDelete={onDelete}
               onAddSubfolder={onAddSubfolder}

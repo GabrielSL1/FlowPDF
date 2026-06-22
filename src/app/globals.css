@@ -5,6 +5,7 @@
 
 @layer base {
   :root {
+    /* Light theme (defaults) */
     --background: 210 14% 96%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
@@ -33,6 +34,39 @@
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 215 50% 35%;
     --sidebar-ring: 194 84% 56%;
+  }
+
+  /* Dark theme overrides */
+  .dark {
+    --background: 220 12% 10%;
+    --foreground: 210 16% 92%;
+    --card: 222 14% 12%;
+    --card-foreground: 210 20% 94%;
+    --popover: 222 14% 12%;
+    --popover-foreground: 210 20% 94%;
+    --primary: 227 90% 60%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 220 14% 16%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 220 12% 14%;
+    --muted-foreground: 210 12% 76%;
+    --accent: 0 78% 56%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 220 10% 18%;
+    --input: 220 10% 18%;
+    --ring: 227 90% 60%;
+    --radius: 0.6rem;
+    /* Sidebar: darker bluish-gray to match design */
+    --sidebar-background: 222 12% 12%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 227 90% 60%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 220 12% 12%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 224 16% 9%;
+    --sidebar-ring: 227 90% 60%;
   }
 }
 

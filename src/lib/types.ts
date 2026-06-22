@@ -11,6 +11,7 @@ export interface Document {
   keywords: string[];
   folderId: string | null;
   userId?: string;
+  sharedWith?: string[];
 }
 
 export interface Folder {
@@ -19,6 +20,14 @@ export interface Folder {
   parentId: string | null;
   createdAt: string;
   userId?: string;
+  isPublic?: boolean;
+}
+
+export interface Member {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
 }
 
 export interface Notification {
@@ -33,6 +42,7 @@ export interface Notification {
 export interface DocuFlowState {
   folders: Folder[];
   documents: Document[];
+  members: Member[];
   currentFolderId: string | null;
   searchQuery: string;
 }

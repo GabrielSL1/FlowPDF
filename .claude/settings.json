@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:9002/login)",
+      "Bash(npm install *)",
+      "Bash(node -e \"import\\('pdfjs-dist'\\).then\\(m => console.log\\(typeof m.version, m.version, typeof m.GlobalWorkerOptions, typeof m.getDocument\\)\\)\" --input-type=module)",
+      "Bash(grep -n \"^export declare const version\\\\|^export declare const GlobalWorkerOptions\\\\|^export declare function getDocument\" node_modules/pdfjs-dist/types/src/pdf.d.ts)",
+      "Bash(ls node_modules/pdfjs-dist/types/)"
+    ]
+  }
+}
