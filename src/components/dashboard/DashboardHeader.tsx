@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UploadModal } from './UploadModal';
 import { SettingsModal } from './SettingsModal';
+import { FilterPopover } from './FilterPopover';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,14 +85,17 @@ export function DashboardHeader() {
           {path}
         </div>
         
-        <div className="relative max-w-md w-full ml-4 lg:ml-8">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Pesquisar por nome ou tags da IA..." 
-            className="pl-10 bg-muted/30 border-none h-11 focus-visible:ring-1"
-            value={state.searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="flex items-center gap-2 max-w-md w-full ml-4 lg:ml-8">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar por nome ou tags da IA..."
+              className="pl-10 bg-muted/30 border-none h-11 focus-visible:ring-1"
+              value={state.searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <FilterPopover />
         </div>
       </div>
 

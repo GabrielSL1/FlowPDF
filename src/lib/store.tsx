@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useCallback, useMemo } from 'react';
-import { Document, Folder, Member, DocuFlowState } from './types';
+import { Document, Folder, Member, DocuFlowState, OriginFilter, DateFilter, DateRange } from './types';
 import { useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import {
   collection,
@@ -26,6 +26,9 @@ interface FlowPDFContextType {
   deleteMember: (id: string) => Promise<void>;
   setCurrentFolder: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
+  setOriginFilter: (filter: OriginFilter) => void;
+  setDateFilter: (filter: DateFilter) => void;
+  setCustomDateRange: (range: DateRange) => void;
 }
 
 const FlowPDFContext = createContext<FlowPDFContextType | undefined>(undefined);
@@ -42,6 +45,9 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
 
   const [currentFolderId, setCurrentFolderId] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [originFilter, setOriginFilter] = React.useState<OriginFilter>('all');
+  const [dateFilter, setDateFilter] = React.useState<DateFilter>('all');
+  const [customDateRange, setCustomDateRange] = React.useState<DateRange>({ start: null, end: null });
 
   const ownFoldersQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -106,7 +112,10 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     members,
     currentFolderId,
     searchQuery,
-  }), [folders, documents, members, currentFolderId, searchQuery]);
+    originFilter,
+    dateFilter,
+    customDateRange,
+  }), [folders, documents, members, currentFolderId, searchQuery, originFilter, dateFilter, customDateRange]);
 
   const addFolder = useCallback(async (name: string, parentId: string | null, isPublic: boolean = false) => {
     if (!user || !db) return;
@@ -225,8 +234,11 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     addMember,
     deleteMember,
     setCurrentFolder: setCurrentFolderId,
-    setSearchQuery
-  }), [state, addFolder, deleteFolder, addDocument, deleteDocument, updateDocumentSharing, addMember, deleteMember, setCurrentFolderId, setSearchQuery]);
+    setSearchQuery,
+    setOriginFilter,
+    setDateFilter,
+    setCustomDateRange
+  }), [state, addFolder, deleteFolder, addDocument, deleteDocument, updateDocumentSharing, addMember, deleteMember, setCurrentFolderId, setSearchQuery, setOriginFilter, setDateFilter, setCustomDateRange]);
 
   return (
     <FlowPDFContext.Provider value={value}>

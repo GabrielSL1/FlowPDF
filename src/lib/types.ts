@@ -39,10 +39,21 @@ export interface Notification {
   read: boolean;
 }
 
+export type OriginFilter = 'all' | 'mine' | 'shared' | 'public';
+export type DateFilter = 'all' | 'today' | '7d' | '30d' | 'custom';
+
+export interface DateRange {
+  start: string | null;
+  end: string | null;
+}
+
 export interface DocuFlowState {
   folders: Folder[];
   documents: Document[];
   members: Member[];
   currentFolderId: string | null;
   searchQuery: string;
+  originFilter: OriginFilter;
+  dateFilter: DateFilter;
+  customDateRange: DateRange;
 }

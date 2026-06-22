@@ -4,7 +4,7 @@
 import React from 'react';
 import { useFlowPDF } from '@/lib/store';
 import { useUser } from '@/firebase';
-import { FileText, MoreVertical, Trash2, Eye, ExternalLink, Share2, Users, Globe } from 'lucide-react';
+import { FileText, MoreVertical, Trash2, Eye, ExternalLink, Share2, Users, Globe, Folder as FolderIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -17,7 +17,45 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { PDFViewerModal } from './PDFViewerModal';
 import { ShareDocumentDialog } from './ShareDocumentDialog';
-import { Document } from '@/lib/types';
+import { Document, Folder, OriginFilter, DateFilter, DateRange } from '@/lib/types';
+
+function matchesOrigin(doc: Document, folder: Folder | undefined, originFilter: OriginFilter, userId?: string, userEmail?: string | null) {
+  if (originFilter === 'all') return true;
+  const isOwner = !!userId && doc.userId === userId;
+  const isPublicFolder = !!folder?.isPublic;
+  if (originFilter === 'mine') return isOwner;
+  if (originFilter === 'public') return isPublicFolder;
+  if (originFilter === 'shared') {
+    return !isOwner && !!userEmail && (doc.sharedWith?.includes(userEmail) ?? false);
+  }
+  return true;
+}
+
+function matchesDate(doc: Document, dateFilter: DateFilter, customRange: DateRange) {
+  if (dateFilter === 'all') return true;
+  const uploadDate = new Date(doc.uploadDate);
+  const now = new Date();
+
+  if (dateFilter === 'today') {
+    return uploadDate.toDateString() === now.toDateString();
+  }
+  if (dateFilter === '7d' || dateFilter === '30d') {
+    const days = dateFilter === '7d' ? 7 : 30;
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() - days);
+    return uploadDate >= cutoff;
+  }
+  if (dateFilter === 'custom') {
+    if (customRange.start && uploadDate < new Date(customRange.start)) return false;
+    if (customRange.end) {
+      const end = new Date(customRange.end);
+      end.setHours(23, 59, 59, 999);
+      if (uploadDate > end) return false;
+    }
+    return true;
+  }
+  return true;
+}
 
 export function DocumentGrid() {
   const { state, deleteDocument } = useFlowPDF();
@@ -25,11 +63,18 @@ export function DocumentGrid() {
   const [viewingDoc, setViewingDoc] = React.useState<string | null>(null);
   const [sharingDocId, setSharingDocId] = React.useState<string | null>(null);
 
+  const hasActiveFilter = state.searchQuery.trim() !== '' || state.originFilter !== 'all' || state.dateFilter !== 'all';
+
   const filteredDocs = state.documents.filter(doc => {
-    const inFolder = state.currentFolderId === null || doc.folderId === state.currentFolderId;
-    const matchesSearch = doc.name.toLowerCase().includes(state.searchQuery.toLowerCase()) ||
-                        doc.tags.some(tag => tag.toLowerCase().includes(state.searchQuery.toLowerCase()));
-    return inFolder && matchesSearch;
+    const folder = state.folders.find(f => f.id === doc.folderId);
+    const inFolder = hasActiveFilter || state.currentFolderId === null || doc.folderId === state.currentFolderId;
+    const q = state.searchQuery.toLowerCase();
+    const matchesSearch = !q || doc.name.toLowerCase().includes(q) ||
+                        doc.tags.some(tag => tag.toLowerCase().includes(q));
+    return inFolder
+      && matchesSearch
+      && matchesOrigin(doc, folder, state.originFilter, user?.uid, user?.email)
+      && matchesDate(doc, state.dateFilter, state.customDateRange);
   });
 
   if (filteredDocs.length === 0) {
@@ -39,7 +84,7 @@ export function DocumentGrid() {
           <FileText className="w-10 h-10 opacity-20" />
         </div>
         <p className="text-lg font-medium">Nenhum documento encontrado</p>
-        <p className="text-sm">Faça upload de um PDF para começar</p>
+        <p className="text-sm">{hasActiveFilter ? 'Tente ajustar a pesquisa ou os filtros' : 'Faça upload de um PDF para começar'}</p>
       </div>
     );
   }
@@ -114,7 +159,14 @@ export function DocumentGrid() {
                 <span>•</span>
                 <span>{format(new Date(doc.uploadDate), 'dd/MM/yyyy')}</span>
               </div>
-              
+
+              {hasActiveFilter && (
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70 mb-3 font-semibold truncate">
+                  <FolderIcon className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{folder ? folder.name : 'Raiz'}</span>
+                </div>
+              )}
+
               {doc.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {doc.tags.slice(0, 2).map((tag, i) => {
