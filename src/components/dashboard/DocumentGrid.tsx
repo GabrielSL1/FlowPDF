@@ -4,7 +4,7 @@
 import React from 'react';
 import { useFlowPDF } from '@/lib/store';
 import { useUser } from '@/firebase';
-import { FileText, MoreVertical, Trash2, Eye, ExternalLink, Share2, Users, Globe, Folder as FolderIcon } from 'lucide-react';
+import { FileText, MoreVertical, Trash2, Eye, ExternalLink, Share2, Users, Globe, Folder as FolderIcon, Tag, AlertCircle, ClipboardCheck, CheckCircle, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -12,12 +12,22 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { PDFViewerModal } from './PDFViewerModal';
 import { ShareDocumentDialog } from './ShareDocumentDialog';
-import { Document, Folder, OriginFilter, DateFilter, DateRange } from '@/lib/types';
+import { Document, Folder, OriginFilter, DateFilter, DateRange, DocumentStatus } from '@/lib/types';
+
+const STATUS_CONFIG: Record<DocumentStatus, { label: string; badgeClass: string; icon: typeof AlertCircle }> = {
+  importante: { label: 'Importante', badgeClass: 'bg-red-600 text-white', icon: AlertCircle },
+  revisao: { label: 'Em Revisão', badgeClass: 'bg-amber-400 text-black', icon: ClipboardCheck },
+  aprovado: { label: 'Aprovado', badgeClass: 'bg-emerald-500 text-white', icon: CheckCircle },
+};
 
 function matchesOrigin(doc: Document, folder: Folder | undefined, originFilter: OriginFilter, userId?: string, userEmail?: string | null) {
   if (originFilter === 'all') return true;
@@ -58,24 +68,32 @@ function matchesDate(doc: Document, dateFilter: DateFilter, customRange: DateRan
 }
 
 export function DocumentGrid() {
-  const { state, deleteDocument } = useFlowPDF();
+  const { state, deleteDocument, updateDocumentStatus } = useFlowPDF();
   const { user } = useUser();
   const [viewingDoc, setViewingDoc] = React.useState<string | null>(null);
   const [sharingDocId, setSharingDocId] = React.useState<string | null>(null);
 
   const hasActiveFilter = state.searchQuery.trim() !== '' || state.originFilter !== 'all' || state.dateFilter !== 'all';
 
-  const filteredDocs = state.documents.filter(doc => {
-    const folder = state.folders.find(f => f.id === doc.folderId);
-    const inFolder = hasActiveFilter || state.currentFolderId === null || doc.folderId === state.currentFolderId;
+  const folderById = React.useMemo(() => {
+    const map = new Map<string, Folder>();
+    state.folders.forEach(f => map.set(f.id, f));
+    return map;
+  }, [state.folders]);
+
+  const filteredDocs = React.useMemo(() => {
     const q = state.searchQuery.toLowerCase();
-    const matchesSearch = !q || doc.name.toLowerCase().includes(q) ||
-                        doc.tags.some(tag => tag.toLowerCase().includes(q));
-    return inFolder
-      && matchesSearch
-      && matchesOrigin(doc, folder, state.originFilter, user?.uid, user?.email)
-      && matchesDate(doc, state.dateFilter, state.customDateRange);
-  });
+    return state.documents.filter(doc => {
+      const folder = doc.folderId ? folderById.get(doc.folderId) : undefined;
+      const inFolder = hasActiveFilter || state.currentFolderId === null || doc.folderId === state.currentFolderId;
+      const matchesSearch = !q || doc.name.toLowerCase().includes(q) ||
+                          doc.tags.some(tag => tag.toLowerCase().includes(q));
+      return inFolder
+        && matchesSearch
+        && matchesOrigin(doc, folder, state.originFilter, user?.uid, user?.email)
+        && matchesDate(doc, state.dateFilter, state.customDateRange);
+    });
+  }, [state.documents, state.searchQuery, state.currentFolderId, state.originFilter, state.dateFilter, state.customDateRange, hasActiveFilter, folderById, user?.uid, user?.email]);
 
   if (filteredDocs.length === 0) {
     return (
@@ -92,7 +110,7 @@ export function DocumentGrid() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
       {filteredDocs.map((doc) => {
-        const folder = state.folders.find(f => f.id === doc.folderId);
+        const folder = doc.folderId ? folderById.get(doc.folderId) : undefined;
         const isPublicFolder = !!folder?.isPublic;
         const isOwner = !!user && doc.userId === user.uid;
         const canManage = isOwner || isPublicFolder;
@@ -106,12 +124,24 @@ export function DocumentGrid() {
         >
           <CardContent className="p-0">
             <div className="aspect-[4/5] bg-card/60 relative group-hover:bg-card/70 transition-colors overflow-hidden border-b border-sidebar-border/20 flex items-center justify-center p-4">
-              {(isPublicFolder || isShared) && (
-                <div className="absolute top-3 left-3 z-10">
-                  <Badge variant="secondary" className="gap-1 text-[9px] font-bold uppercase tracking-widest bg-popover/90 text-popover-foreground border-none shadow-sm">
-                    {isPublicFolder ? <Globe className="w-3 h-3" /> : <Users className="w-3 h-3" />}
-                    {isPublicFolder ? 'Pública' : 'Compartilhado'}
-                  </Badge>
+              {(isPublicFolder || isShared || doc.status) && (
+                <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 items-start">
+                  {doc.status && (() => {
+                    const cfg = STATUS_CONFIG[doc.status as DocumentStatus];
+                    const StatusIcon = cfg.icon;
+                    return (
+                      <Badge variant="secondary" className={`gap-1 text-[9px] font-bold uppercase tracking-widest border-none shadow-sm ${cfg.badgeClass}`}>
+                        <StatusIcon className="w-3 h-3" />
+                        {cfg.label}
+                      </Badge>
+                    );
+                  })()}
+                  {(isPublicFolder || isShared) && (
+                    <Badge variant="secondary" className="gap-1 text-[9px] font-bold uppercase tracking-widest bg-popover/90 text-popover-foreground border-none shadow-sm">
+                      {isPublicFolder ? <Globe className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+                      {isPublicFolder ? 'Pública' : 'Compartilhado'}
+                    </Badge>
+                  )}
                 </div>
               )}
 
@@ -136,6 +166,31 @@ export function DocumentGrid() {
                       <DropdownMenuItem onClick={() => setSharingDocId(doc.id)}>
                         <Share2 className="w-4 h-4 mr-2" /> Compartilhar
                       </DropdownMenuItem>
+                    )}
+                    {canManage && (
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                          <Tag className="w-4 h-4 mr-2" /> Marcar como
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                          <DropdownMenuSubContent>
+                            {(Object.keys(STATUS_CONFIG) as DocumentStatus[]).map((key) => {
+                              const cfg = STATUS_CONFIG[key];
+                              const StatusIcon = cfg.icon;
+                              return (
+                                <DropdownMenuItem key={key} onClick={() => updateDocumentStatus(doc.id, key)}>
+                                  <StatusIcon className="w-4 h-4 mr-2" /> {cfg.label}
+                                </DropdownMenuItem>
+                              );
+                            })}
+                            {doc.status && (
+                              <DropdownMenuItem onClick={() => updateDocumentStatus(doc.id, null)}>
+                                <X className="w-4 h-4 mr-2" /> Remover status
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                      </DropdownMenuSub>
                     )}
                     {canManage && (
                       <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteDocument(doc.id)}>
@@ -169,22 +224,11 @@ export function DocumentGrid() {
 
               {doc.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {doc.tags.slice(0, 2).map((tag, i) => {
-                    const t = tag.toLowerCase();
-                    const cls = t.includes('import')
-                      ? 'bg-red-600 text-white'
-                      : t.includes('revis')
-                      ? 'bg-amber-400 text-black'
-                      : t.includes('aprov')
-                      ? 'bg-emerald-400 text-black'
-                      : 'bg-slate-500 text-white';
-
-                    return (
-                      <Badge key={i} variant="secondary" className={`text-[9px] px-2 py-0 rounded-sm font-bold uppercase tracking-widest ${cls} border-none`}>
-                        {tag}
-                      </Badge>
-                    )
-                  })}
+                  {doc.tags.slice(0, 2).map((tag, i) => (
+                    <Badge key={i} variant="secondary" className="text-[9px] px-2 py-0 rounded-sm font-bold uppercase tracking-widest bg-slate-500 text-white border-none">
+                      {tag}
+                    </Badge>
+                  ))}
                   {doc.tags.length > 2 && (
                     <span className="text-[9px] font-bold text-muted-foreground/60">+{doc.tags.length - 2}</span>
                   )}
@@ -209,7 +253,7 @@ export function DocumentGrid() {
   );
 }
 
-function DocumentThumbnail({ doc }: { doc: Document }) {
+const DocumentThumbnail = React.memo(function DocumentThumbnail({ doc }: { doc: Document }) {
   const [imgFailed, setImgFailed] = React.useState(false);
   const hasRealThumbnail = !!doc.thumbnailUrl && !imgFailed;
 
@@ -219,6 +263,8 @@ function DocumentThumbnail({ doc }: { doc: Document }) {
       <img
         src={doc.thumbnailUrl}
         alt={`Preview de ${doc.name}`}
+        loading="lazy"
+        decoding="async"
         className="w-full h-full object-cover object-top rounded-md border border-sidebar-border/30 transform transition-all group-hover:scale-[1.02] group-hover:-translate-y-1 bg-white"
         onError={() => setImgFailed(true)}
       />
@@ -248,4 +294,4 @@ function DocumentThumbnail({ doc }: { doc: Document }) {
       </div>
     </div>
   );
-}
+});

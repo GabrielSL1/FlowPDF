@@ -1,13 +1,63 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permissão total para usuários autenticados durante o desenvolvimento
-    // Isso garante que o app nunca trave por "Missing or insufficient permissions"
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+
+    // OBS: o motor de regras do Firestore não consegue provar a seguranca de uma consulta
+    // (list/query) quando a condição usa "campo is list" antes de um "in" — ele nega a
+    // consulta inteira com "permission-denied" mesmo que o resultado devesse ser permitido.
+    // Por isso o "sharedWith is list" foi removido; os dados sempre gravam sharedWith como
+    // array (mesmo vazio), então a checagem extra era redundante.
+
+    function isOwner(data) {
+      return request.auth != null && data.userId == request.auth.uid;
     }
-    
-    // Comentário para forçar redeploy imediato e limpar cache de permissões antigo
-    // deploy_v105_unlimited_access_for_auth_users
+
+    function folderIsPublic(folderId) {
+      return folderId != null &&
+        exists(/databases/$(database)/documents/folders/$(folderId)) &&
+        get(/databases/$(database)/documents/folders/$(folderId)).data.isPublic == true;
+    }
+
+    // ---- folders ----
+    match /folders/{folderId} {
+      allow read: if (request.auth != null && resource.data.userId == request.auth.uid)
+        || resource.data.isPublic == true;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data);
+    }
+
+    // ---- documents ----
+    match /documents/{docId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        request.auth.token.email in resource.data.sharedWith ||
+        folderIsPublic(resource.data.folderId)
+      );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data) || folderIsPublic(resource.data.folderId);
+    }
+
+    // ---- members (lista compartilhada da equipe) ----
+    match /members/{memberId} {
+      allow read: if request.auth != null;
+      allow create, delete: if request.auth != null;
+      allow update: if false;
+    }
+
+    // ---- notifications ----
+    match /notifications/{notifId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.isPublic == true ||
+        request.auth.token.email in resource.data.sharedWith
+      );
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.isPublic == true ||
+        request.auth.token.email in resource.data.sharedWith
+      );
+      allow delete: if false;
+    }
   }
 }

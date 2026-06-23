@@ -49,7 +49,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-export function SidebarNav() {
+export function SidebarNav({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { state, setCurrentFolder, addFolder, deleteFolder } = useFlowPDF();
   const auth = useAuth();
   const { user } = useUser();
@@ -75,12 +75,12 @@ export function SidebarNav() {
     }
   };
 
-  const openNewFolderDialog = (parentId: string | null) => {
+  const openNewFolderDialog = React.useCallback((parentId: string | null) => {
     setParentFolderId(parentId);
     setNewFolderName("");
     setNewFolderPublic(false);
     setIsDialogOpen(true);
-  };
+  }, []);
 
   const handleCreateFolder = async () => {
     if (newFolderName.trim()) {
@@ -105,9 +105,8 @@ export function SidebarNav() {
     <div className="flex flex-col h-full text-sidebar-foreground">
       <div className="p-6 flex-1 overflow-y-auto">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground font-bold text-xl font-headline">
-            F
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="FlowPDF" className="w-10 h-10 rounded-lg object-contain shrink-0" />
           <span className="text-2xl font-bold font-headline tracking-tight">FlowPDF</span>
         </div>
 
@@ -118,7 +117,7 @@ export function SidebarNav() {
               "w-full justify-start gap-3 h-11 text-base transition-colors",
               state.currentFolderId === null ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/50"
             )}
-            onClick={() => setCurrentFolder(null)}
+            onClick={() => { setCurrentFolder(null); onNavigate?.(); }}
           >
             <LayoutDashboard className="w-5 h-5" />
             Dashboard
@@ -144,7 +143,7 @@ export function SidebarNav() {
                 allFolders={state.folders}
                 currentFolderId={state.currentFolderId}
                 currentUserId={user?.uid}
-                onSelect={setCurrentFolder}
+                onSelect={(id) => { setCurrentFolder(id); onNavigate?.(); }}
                 onDelete={deleteFolder}
                 onAddSubfolder={openNewFolderDialog}
               />
@@ -224,7 +223,7 @@ export function SidebarNav() {
   );
 }
 
-function FolderItem({
+const FolderItem = React.memo(function FolderItem({
   folder,
   allFolders,
   currentFolderId,
@@ -353,4 +352,4 @@ function FolderItem({
       )}
     </Collapsible>
   );
-}
+});

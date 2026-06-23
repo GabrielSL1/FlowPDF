@@ -3,10 +3,11 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
-import { 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  createUserWithEmailAndPassword, 
+import {
+  signInWithPopup,
+  signInWithRedirect,
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
@@ -37,18 +38,33 @@ export default function LoginPage() {
   }, [user, loading, router]);
 
   const handleFirebaseError = (error: any) => {
+    console.error("Erro de autenticação Firebase:", error.code, error.message);
+
+    // O usuário só fechou o popup ou clicou duas vezes rápido — não é um erro real, não precisa de toast.
+    if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+      return;
+    }
+
     let message = "Ocorreu um erro inesperado.";
-    
+
     if (error.code === 'auth/api-key-not-valid' || error.message?.includes('api-key-not-valid')) {
       message = "A Chave de API do Firebase está sendo validada. Aguarde alguns segundos e tente novamente.";
     } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
       message = "E-mail ou senha incorretos.";
     } else if (error.code === 'auth/email-already-in-use') {
       message = "Este e-mail já está em uso.";
+    } else if (error.code === 'auth/operation-not-allowed') {
+      message = "O login com Google ainda não está habilitado neste projeto. Ative em Firebase Console → Authentication → Sign-in method → Google.";
+    } else if (error.code === 'auth/unauthorized-domain') {
+      message = "Este domínio não está autorizado para login. Adicione-o em Firebase Console → Authentication → Settings → Authorized domains.";
+    } else if (error.code === 'auth/account-exists-with-different-credential') {
+      message = "Este e-mail já tem uma conta criada com senha. Entre com e-mail e senha.";
+    } else if (error.code === 'auth/popup-blocked') {
+      message = "O navegador bloqueou o popup do Google. Permitindo popups ou tentando novamente deve funcionar.";
     } else {
       message = error.message || "Erro na autenticação.";
     }
-    
+
     toast({
       variant: "destructive",
       title: "Erro de Acesso",
@@ -80,6 +96,15 @@ export default function LoginPage() {
     try {
       await signInWithPopup(auth, provider);
     } catch (error: any) {
+      if (error.code === 'auth/popup-blocked') {
+        try {
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectError: any) {
+          handleFirebaseError(redirectError);
+          return;
+        }
+      }
       handleFirebaseError(error);
     } finally {
       setAuthLoading(false);
@@ -93,9 +118,8 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl border-none">
         <CardHeader className="space-y-4 text-center pb-6">
           <div className="flex justify-center">
-            <div className="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-3xl font-bold text-white">F</span>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="FlowPDF" className="w-16 h-16 rounded-2xl object-contain shadow-lg" />
           </div>
           <CardTitle className="text-3xl font-bold">FlowPDF</CardTitle>
           <CardDescription>Gestão Inteligente de Documentos</CardDescription>

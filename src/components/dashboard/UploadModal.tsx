@@ -16,8 +16,8 @@ import { tagDocument } from '@/ai/flows/ai-document-tagging';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
-import { supabase, DOCUMENTS_BUCKET } from '@/lib/supabase';
 import { generatePdfThumbnail } from '@/lib/pdf-thumbnail';
+import { optimizePdf } from '@/lib/pdf-optimize';
 import { collection, addDoc } from 'firebase/firestore';
 
 export function UploadModal() {
@@ -50,70 +50,56 @@ export function UploadModal() {
     setSelectedEmails(prev => prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]);
   };
 
-  const uploadFile = async (file: File) => {
+  const uploadFile = async (originalFile: File) => {
     if (!user) return;
 
     setUploading(true);
     setProgress(0);
     setErrorMessage(null);
-    setStatus('Enviando arquivo...');
+    setStatus('Otimizando arquivo...');
 
     try {
-      const storagePath = `${user.uid}/${Date.now()}_${file.name}`;
-      setProgress(20);
+      const { file, originalSize, optimizedSize } = await optimizePdf(originalFile);
+      const savedPercent = originalSize > 0 ? Math.round((1 - optimizedSize / originalSize) * 100) : 0;
 
-      const { error: uploadError } = await supabase.storage
-        .from(DOCUMENTS_BUCKET)
-        .upload(storagePath, file, {
-          contentType: 'application/pdf',
-          cacheControl: '3600',
-        });
+      setProgress(15);
+      setStatus('Gerando preview e analisando arquivo...');
 
-      if (uploadError) {
-        console.error("Erro ao enviar para o Supabase Storage:", uploadError);
-        let description = uploadError.message || "Não foi possível enviar o arquivo. Tente novamente.";
-        if (/row-level security|not authorized|permission/i.test(description)) {
-          description = "Permissão negada pelo Supabase Storage. Verifique as políticas (policies) do bucket no painel do Supabase.";
-        } else if (/bucket not found/i.test(description)) {
-          description = `O bucket "${DOCUMENTS_BUCKET}" não existe no seu projeto Supabase. Crie-o em Storage no painel do Supabase.`;
-        }
-        setErrorMessage(description);
+      // Geração de preview e análise de IA rodam em paralelo (são independentes)
+      const [thumbnailBlob, aiResults] = await Promise.all([
+        generatePdfThumbnail(file),
+        tagDocument({ documentContent: file.name })
+          .catch(() => ({ tags: ['Geral'], keywords: [file.name] })),
+      ]);
+
+      setProgress(40);
+      setStatus('Enviando arquivo...');
+
+      const idToken = await user.getIdToken();
+      const formData = new FormData();
+      formData.append('file', file);
+      if (thumbnailBlob) formData.append('thumbnail', thumbnailBlob, 'thumbnail.jpg');
+
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+        body: formData,
+      });
+      const uploadResult = await uploadRes.json();
+
+      if (!uploadRes.ok) {
+        setErrorMessage(uploadResult.error || "Não foi possível enviar o arquivo. Tente novamente.");
         setUploading(false);
         return;
       }
 
-      setProgress(50);
-      setStatus('Gerando preview do PDF...');
-
-      const { data: publicUrlData } = supabase.storage
-        .from(DOCUMENTS_BUCKET)
-        .getPublicUrl(storagePath);
-
-      let thumbnailUrl: string | undefined;
-      const thumbnailBlob = await generatePdfThumbnail(file);
-      if (thumbnailBlob) {
-        const thumbPath = `${user.uid}/thumbnails/${Date.now()}_${file.name}.jpg`;
-        const { error: thumbError } = await supabase.storage
-          .from(DOCUMENTS_BUCKET)
-          .upload(thumbPath, thumbnailBlob, {
-            contentType: 'image/jpeg',
-            cacheControl: '3600',
-          });
-        if (!thumbError) {
-          thumbnailUrl = supabase.storage.from(DOCUMENTS_BUCKET).getPublicUrl(thumbPath).data.publicUrl;
-        }
-      }
-
-      setProgress(70);
-      setStatus('IA Analisando conteúdo...');
-
-      const aiResults = await tagDocument({ documentContent: file.name })
-        .catch(() => ({ tags: ['Geral'], keywords: [file.name] }));
+      setProgress(80);
+      setStatus('Salvando metadados...');
 
       await addDocument({
         name: file.name,
-        url: publicUrlData.publicUrl,
-        ...(thumbnailUrl ? { thumbnailUrl } : {}),
+        url: uploadResult.url,
+        ...(uploadResult.thumbnailUrl ? { thumbnailUrl: uploadResult.thumbnailUrl } : {}),
         size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
         uploadDate: new Date().toISOString(),
         type: 'pdf' as const,
@@ -127,18 +113,49 @@ export function UploadModal() {
       setProgress(100);
       setStatus('Finalizado!');
 
+      const now = new Date().toISOString();
+
       await addDoc(collection(db, 'notifications'), {
         userId: user.uid,
         message: `Documento "${file.name}" carregado na nuvem.`,
         type: 'upload_success',
-        createdAt: new Date().toISOString(),
-        read: false
+        createdAt: now,
+        readBy: [user.uid]
       }).catch(() => {});
+
+      if (isPublicFolder) {
+        await addDoc(collection(db, 'notifications'), {
+          isPublic: true,
+          uploaderId: user.uid,
+          documentName: file.name,
+          message: `Novo arquivo na pasta pública "${currentFolder?.name}": "${file.name}"`,
+          type: 'upload_success',
+          createdAt: now,
+          readBy: []
+        }).catch(() => {});
+      }
+
+      if (selectedEmails.length > 0) {
+        await addDoc(collection(db, 'notifications'), {
+          sharedWith: selectedEmails,
+          uploaderId: user.uid,
+          documentName: file.name,
+          message: `"${file.name}" foi compartilhado com você.`,
+          type: 'upload_success',
+          createdAt: now,
+          readBy: []
+        }).catch(() => {});
+      }
 
       setTimeout(() => {
         setOpen(false);
         resetUpload();
-        toast({ title: "Sucesso!", description: "Seu arquivo foi enviado e processado." });
+        toast({
+          title: "Sucesso!",
+          description: savedPercent > 1
+            ? `Seu arquivo foi enviado e processado. Otimização reduziu o tamanho em ${savedPercent}%.`
+            : "Seu arquivo foi enviado e processado."
+        });
       }, 800);
     } catch (error: any) {
       console.error("Erro técnico no upload:", error);
@@ -167,11 +184,11 @@ export function UploadModal() {
   return (
     <Dialog open={open} onOpenChange={(val) => { if (!uploading) setOpen(val); if (!val) resetUpload(); }}>
       <DialogTrigger asChild>
-        <Button className="gap-2 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90">
-          <Upload className="w-4 h-4" /> Upload PDF
+        <Button className="gap-2 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 px-3 sm:px-4">
+          <Upload className="w-4 h-4" /> <span className="hidden sm:inline">Upload PDF</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md border-none shadow-2xl">
+      <DialogContent className="sm:max-w-md border-none shadow-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-primary" />

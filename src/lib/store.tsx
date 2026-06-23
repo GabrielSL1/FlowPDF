@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useCallback, useMemo } from 'react';
-import { Document, Folder, Member, DocuFlowState, OriginFilter, DateFilter, DateRange } from './types';
+import { Document, Folder, Member, DocuFlowState, OriginFilter, DateFilter, DateRange, DocumentStatus } from './types';
 import { useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import {
   collection,
@@ -10,6 +10,7 @@ import {
   addDoc,
   deleteDoc,
   updateDoc,
+  setDoc,
   doc,
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -22,6 +23,7 @@ interface FlowPDFContextType {
   addDocument: (docData: Omit<Document, 'id'>) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
   updateDocumentSharing: (id: string, sharedWith: string[]) => Promise<void>;
+  updateDocumentStatus: (id: string, status: DocumentStatus | null) => Promise<void>;
   addMember: (name: string, email: string) => Promise<void>;
   deleteMember: (id: string) => Promise<void>;
   setCurrentFolder: (id: string | null) => void;
@@ -38,6 +40,9 @@ function dedupeById<T extends { id: string }>(...lists: (T[] | null)[]): T[] {
   lists.forEach(list => (list || []).forEach(item => map.set(item.id, item)));
   return Array.from(map.values());
 }
+
+const DEFAULT_PUBLIC_FOLDER_ID = 'default-arquivos-importantes';
+const DEFAULT_PUBLIC_FOLDER_NAME = 'Arquivos Importantes';
 
 export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
@@ -60,6 +65,21 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     return query(collection(db, 'folders'), where('isPublic', '==', true));
   }, [db, user]);
   const { data: publicFoldersData } = useCollection<Folder>(publicFoldersQuery);
+
+  React.useEffect(() => {
+    if (!db || !user || publicFoldersData === null) return;
+    if (publicFoldersData.length > 0) return;
+
+    setDoc(doc(db, 'folders', DEFAULT_PUBLIC_FOLDER_ID), {
+      name: DEFAULT_PUBLIC_FOLDER_NAME,
+      parentId: null,
+      userId: user.uid,
+      isPublic: true,
+      createdAt: new Date().toISOString()
+    }).catch((err) => {
+      console.warn("Falha ao criar pasta pública padrão:", err);
+    });
+  }, [db, user, publicFoldersData]);
 
   const folders = useMemo(
     () => dedupeById(ownFoldersData, publicFoldersData).sort((a, b) => a.name.localeCompare(b.name)),
@@ -200,6 +220,18 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     });
   }, [db, user]);
 
+  const updateDocumentStatus = useCallback(async (id: string, status: DocumentStatus | null) => {
+    if (!user || !db) return;
+    await updateDoc(doc(db, 'documents', id), { status }).catch((err) => {
+      console.warn("Firestore Error:", err);
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: `documents/${id}`,
+        operation: 'update',
+        requestResourceData: { status },
+      }));
+    });
+  }, [db, user]);
+
   const addMember = useCallback(async (name: string, email: string) => {
     if (!user || !db) return;
     const memberData = {
@@ -231,6 +263,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     addDocument,
     deleteDocument,
     updateDocumentSharing,
+    updateDocumentStatus,
     addMember,
     deleteMember,
     setCurrentFolder: setCurrentFolderId,
@@ -238,7 +271,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     setOriginFilter,
     setDateFilter,
     setCustomDateRange
-  }), [state, addFolder, deleteFolder, addDocument, deleteDocument, updateDocumentSharing, addMember, deleteMember, setCurrentFolderId, setSearchQuery, setOriginFilter, setDateFilter, setCustomDateRange]);
+  }), [state, addFolder, deleteFolder, addDocument, deleteDocument, updateDocumentSharing, updateDocumentStatus, addMember, deleteMember, setCurrentFolderId, setSearchQuery, setOriginFilter, setDateFilter, setCustomDateRange]);
 
   return (
     <FlowPDFContext.Provider value={value}>

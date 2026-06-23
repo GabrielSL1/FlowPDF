@@ -1,7 +1,10 @@
--- Permite que qualquer usuário envie, leia e apague arquivos no bucket "documents".
--- Como a autenticação de usuários deste app é feita via Firebase (não via Supabase Auth),
--- usamos a chave anon para todas as operações e liberamos o bucket publicamente.
--- Se quiser restringir por usuário no futuro, isso exigiria migrar a autenticação para o Supabase Auth.
+-- Bucket "documents": leitura pública (necessária para os links de PDF/preview/avatar
+-- funcionarem para qualquer usuário do app), mas escrita (insert/update/delete) só é
+-- permitida usando a service_role key, que nunca é exposta ao navegador.
+-- Todo upload passa agora pelas rotas /api/upload e /api/avatar-upload do servidor,
+-- que verificam o login do Firebase antes de gravar no Supabase.
+-- A policy "to public" antiga de insert/update/delete foi removida de propósito:
+-- a chave anon (pública, visível no navegador) não tem mais permissão de escrita.
 
 drop policy if exists "Public Access Documents Select" on storage.objects;
 drop policy if exists "Public Access Documents Insert" on storage.objects;
@@ -10,20 +13,5 @@ drop policy if exists "Public Access Documents Delete" on storage.objects;
 
 create policy "Public Access Documents Select"
 on storage.objects for select
-to public
-using ( bucket_id = 'documents' );
-
-create policy "Public Access Documents Insert"
-on storage.objects for insert
-to public
-with check ( bucket_id = 'documents' );
-
-create policy "Public Access Documents Update"
-on storage.objects for update
-to public
-using ( bucket_id = 'documents' );
-
-create policy "Public Access Documents Delete"
-on storage.objects for delete
 to public
 using ( bucket_id = 'documents' );

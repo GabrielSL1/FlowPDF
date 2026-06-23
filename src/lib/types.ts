@@ -1,3 +1,4 @@
+export type DocumentStatus = 'importante' | 'revisao' | 'aprovado';
 
 export interface Document {
   id: string;
@@ -12,6 +13,7 @@ export interface Document {
   folderId: string | null;
   userId?: string;
   sharedWith?: string[];
+  status?: DocumentStatus | null;
 }
 
 export interface Folder {
@@ -32,11 +34,16 @@ export interface Member {
 
 export interface Notification {
   id: string;
-  userId: string;
+  userId?: string;
   message: string;
   type: 'upload_success' | 'info';
   createdAt: string;
-  read: boolean;
+  read?: boolean;
+  readBy?: string[];
+  isPublic?: boolean;
+  sharedWith?: string[];
+  uploaderId?: string;
+  documentName?: string;
 }
 
 export type OriginFilter = 'all' | 'mine' | 'shared' | 'public';
