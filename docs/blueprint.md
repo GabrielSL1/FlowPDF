@@ -1,4 +1,4 @@
-# **App Name**: DocuFlow
+# **App Name**: FlowPDF
 
 ## Core Features:
 

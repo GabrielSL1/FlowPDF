@@ -1,4 +1,4 @@
-# DocuFlow - Guia de Instalação e Uso
+# FlowPDF - Guia de Instalação e Uso
 
 Este é um sistema inteligente de gestão de documentos (ERP PDF) movido a IA.
 
@@ -19,7 +19,7 @@ Se você estiver no Windows, basta dar um duplo clique no arquivo:
 Abra a pasta do projeto no seu terminal (cmd, powershell ou bash) e digite:
 1. `npm install` (Para instalar as bibliotecas na primeira vez)
 2. `npm run dev` (Para iniciar o servidor)
-3. Abra `http://localhost:3000` no seu navegador.
+3. Abra `http://localhost:9002` no seu navegador.
 
 ## Funcionalidades Principais
 - **Login de Teste:** Use `admin@flowpdf.com` / `admin123`.
