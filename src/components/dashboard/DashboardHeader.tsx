@@ -93,7 +93,7 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void } = 
 
   const unreadCount = user ? visibleNotifications.filter(n => !isNotificationRead(n, user.uid)).length : 0;
 
-  const handleMarkAsRead = async (n: Notification) => {
+  const handleMarkAsRead = React.useCallback(async (n: Notification) => {
     if (!user) return;
     try {
       if (n.readBy) {
@@ -104,7 +104,7 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void } = 
     } catch (e) {
       console.error("Erro ao marcar como lida:", e);
     }
-  };
+  }, [db, user]);
 
   const handleClearAll = () => {
     if (!user || visibleNotifications.length === 0) return;
@@ -193,24 +193,12 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void } = 
                   visibleNotifications.map((n) => {
                     const read = user ? isNotificationRead(n, user.uid) : true;
                     return (
-                    <div
-                      key={n.id}
-                      className={`p-4 border-b last:border-0 hover:bg-muted/50 transition-colors cursor-pointer group flex gap-3 ${!read ? 'bg-primary/5' : ''}`}
-                      onClick={() => !read && handleMarkAsRead(n)}
-                    >
-                      <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${n.type === 'upload_success' ? 'bg-green-100 text-green-600' : 'bg-primary/10 text-primary'}`}>
-                        <Check className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-foreground leading-tight mb-1">{n.message}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {format(new Date(n.createdAt), "dd 'de' MMM, HH:mm", { locale: ptBR })}
-                        </p>
-                      </div>
-                      {!read && (
-                        <div className="w-1.5 h-1.5 bg-accent rounded-full mt-1.5" />
-                      )}
-                    </div>
+                      <NotificationItem
+                        key={n.id}
+                        notification={n}
+                        read={read}
+                        onMarkAsRead={handleMarkAsRead}
+                      />
                     );
                   })
                 ) : (
@@ -256,3 +244,30 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void } = 
     </header>
   );
 }
+
+const NotificationItem = React.memo(function NotificationItem({
+  notification, read, onMarkAsRead,
+}: { notification: Notification; read: boolean; onMarkAsRead: (n: Notification) => void }) {
+  const formattedDate = useMemo(
+    () => format(new Date(notification.createdAt), "dd 'de' MMM, HH:mm", { locale: ptBR }),
+    [notification.createdAt]
+  );
+
+  return (
+    <div
+      className={`p-4 border-b last:border-0 hover:bg-muted/50 transition-colors cursor-pointer group flex gap-3 ${!read ? 'bg-primary/5' : ''}`}
+      onClick={() => !read && onMarkAsRead(notification)}
+    >
+      <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${notification.type === 'upload_success' ? 'bg-green-100 text-green-600' : 'bg-primary/10 text-primary'}`}>
+        <Check className="w-4 h-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-foreground leading-tight mb-1">{notification.message}</p>
+        <p className="text-[10px] text-muted-foreground">{formattedDate}</p>
+      </div>
+      {!read && (
+        <div className="w-1.5 h-1.5 bg-accent rounded-full mt-1.5" />
+      )}
+    </div>
+  );
+});

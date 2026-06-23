@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useFlowPDF } from '@/lib/store';
+import { useUser } from '@/firebase';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export function MembersDialog() {
   const { state, addMember, deleteMember } = useFlowPDF();
+  const { user } = useUser();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -79,22 +81,28 @@ export function MembersDialog() {
             {state.members.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">Nenhum membro cadastrado ainda.</p>
             ) : (
-              state.members.map(member => (
-                <div key={member.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/50">
-                  <div className="overflow-hidden">
-                    <p className="text-sm font-medium truncate">{member.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+              state.members.map(member => {
+                const canDelete = !!user && member.addedBy === user.uid;
+                return (
+                  <div key={member.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/50">
+                    <div className="overflow-hidden">
+                      <p className="text-sm font-medium truncate">{member.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                    </div>
+                    {canDelete && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={() => deleteMember(member.id)}
+                        title="Excluir membro"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
-                    onClick={() => deleteMember(member.id)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

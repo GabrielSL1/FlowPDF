@@ -12,6 +12,7 @@ import {
   updateDoc,
   setDoc,
   doc,
+  writeBatch,
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -171,14 +172,20 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     };
 
     const folderIdsToDelete = findFolderIds(id, state.folders);
+    const folderIdSet = new Set(folderIdsToDelete);
+    const docsToDelete = state.documents.filter(d => d.folderId && folderIdSet.has(d.folderId));
 
-    folderIdsToDelete.forEach(fId => {
-      const docsInFolder = state.documents.filter(d => d.folderId === fId);
-      docsInFolder.forEach(d => {
-        deleteDoc(doc(db, 'documents', d.id));
-      });
-      deleteDoc(doc(db, 'folders', fId));
-    });
+    const refsToDelete = [
+      ...docsToDelete.map(d => doc(db, 'documents', d.id)),
+      ...folderIdsToDelete.map(fId => doc(db, 'folders', fId)),
+    ];
+
+    const FIRESTORE_BATCH_LIMIT = 500;
+    for (let i = 0; i < refsToDelete.length; i += FIRESTORE_BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      refsToDelete.slice(i, i + FIRESTORE_BATCH_LIMIT).forEach(ref => batch.delete(ref));
+      await batch.commit();
+    }
 
     if (currentFolderId && folderIdsToDelete.includes(currentFolderId)) {
       setCurrentFolderId(null);
@@ -237,7 +244,8 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     const memberData = {
       name: name.trim(),
       email: email.trim().toLowerCase(),
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      addedBy: user.uid
     };
 
     addDoc(collection(db, 'members'), memberData)

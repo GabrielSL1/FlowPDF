@@ -73,6 +73,14 @@ export function DocumentGrid() {
   const [viewingDoc, setViewingDoc] = React.useState<string | null>(null);
   const [sharingDocId, setSharingDocId] = React.useState<string | null>(null);
 
+  const handleView = React.useCallback((id: string) => setViewingDoc(id), []);
+  const handleShare = React.useCallback((id: string) => setSharingDocId(id), []);
+  const handleDelete = React.useCallback((id: string) => deleteDocument(id), [deleteDocument]);
+  const handleStatusChange = React.useCallback(
+    (id: string, status: DocumentStatus | null) => updateDocumentStatus(id, status),
+    [updateDocumentStatus]
+  );
+
   const hasActiveFilter = state.searchQuery.trim() !== '' || state.originFilter !== 'all' || state.dateFilter !== 'all';
 
   const folderById = React.useMemo(() => {
@@ -111,132 +119,20 @@ export function DocumentGrid() {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
       {filteredDocs.map((doc) => {
         const folder = doc.folderId ? folderById.get(doc.folderId) : undefined;
-        const isPublicFolder = !!folder?.isPublic;
         const isOwner = !!user && doc.userId === user.uid;
-        const canManage = isOwner || isPublicFolder;
-        const isShared = !isPublicFolder && (doc.sharedWith?.length ?? 0) > 0;
 
         return (
-        <Card
-          key={doc.id}
-          className="group hover:shadow-xl transition-all duration-300 border-border/30 overflow-hidden cursor-pointer bg-card text-card-foreground"
-          onClick={() => setViewingDoc(doc.id)}
-        >
-          <CardContent className="p-0">
-            <div className="aspect-[4/5] bg-card/60 relative group-hover:bg-card/70 transition-colors overflow-hidden border-b border-sidebar-border/20 flex items-center justify-center p-4">
-              {(isPublicFolder || isShared || doc.status) && (
-                <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 items-start">
-                  {doc.status && (() => {
-                    const cfg = STATUS_CONFIG[doc.status as DocumentStatus];
-                    const StatusIcon = cfg.icon;
-                    return (
-                      <Badge variant="secondary" className={`gap-1 text-[9px] font-bold uppercase tracking-widest border-none shadow-sm ${cfg.badgeClass}`}>
-                        <StatusIcon className="w-3 h-3" />
-                        {cfg.label}
-                      </Badge>
-                    );
-                  })()}
-                  {(isPublicFolder || isShared) && (
-                    <Badge variant="secondary" className="gap-1 text-[9px] font-bold uppercase tracking-widest bg-popover/90 text-popover-foreground border-none shadow-sm">
-                      {isPublicFolder ? <Globe className="w-3 h-3" /> : <Users className="w-3 h-3" />}
-                      {isPublicFolder ? 'Pública' : 'Compartilhado'}
-                    </Badge>
-                  )}
-                </div>
-              )}
-
-              <DocumentThumbnail doc={doc} />
-
-              {/* Actions Overlay */}
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" size="icon" className="h-8 w-8 bg-popover text-popover-foreground shadow-sm hover:bg-popover/90 border-none">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48 shadow-xl bg-popover text-popover-foreground">
-                    <DropdownMenuItem onClick={() => setViewingDoc(doc.id)}>
-                      <Eye className="w-4 h-4 mr-2" /> Visualizar
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => window.open(doc.url, '_blank')}>
-                      <ExternalLink className="w-4 h-4 mr-2" /> Abrir Original
-                    </DropdownMenuItem>
-                    {isOwner && !isPublicFolder && (
-                      <DropdownMenuItem onClick={() => setSharingDocId(doc.id)}>
-                        <Share2 className="w-4 h-4 mr-2" /> Compartilhar
-                      </DropdownMenuItem>
-                    )}
-                    {canManage && (
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger>
-                          <Tag className="w-4 h-4 mr-2" /> Marcar como
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                          <DropdownMenuSubContent>
-                            {(Object.keys(STATUS_CONFIG) as DocumentStatus[]).map((key) => {
-                              const cfg = STATUS_CONFIG[key];
-                              const StatusIcon = cfg.icon;
-                              return (
-                                <DropdownMenuItem key={key} onClick={() => updateDocumentStatus(doc.id, key)}>
-                                  <StatusIcon className="w-4 h-4 mr-2" /> {cfg.label}
-                                </DropdownMenuItem>
-                              );
-                            })}
-                            {doc.status && (
-                              <DropdownMenuItem onClick={() => updateDocumentStatus(doc.id, null)}>
-                                <X className="w-4 h-4 mr-2" /> Remover status
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                      </DropdownMenuSub>
-                    )}
-                    {canManage && (
-                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteDocument(doc.id)}>
-                        <Trash2 className="w-4 h-4 mr-2" /> Excluir
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-
-            <div className="p-4 bg-card relative">
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <h3 className="font-bold text-sm truncate flex-1 text-card-foreground leading-tight" title={doc.name}>{doc.name}</h3>
-              </div>
-              
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70 mb-3 font-semibold">
-                <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">PDF</span>
-                <span>•</span>
-                <span>{doc.size}</span>
-                <span>•</span>
-                <span>{format(new Date(doc.uploadDate), 'dd/MM/yyyy')}</span>
-              </div>
-
-              {hasActiveFilter && (
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70 mb-3 font-semibold truncate">
-                  <FolderIcon className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{folder ? folder.name : 'Raiz'}</span>
-                </div>
-              )}
-
-              {doc.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {doc.tags.slice(0, 2).map((tag, i) => (
-                    <Badge key={i} variant="secondary" className="text-[9px] px-2 py-0 rounded-sm font-bold uppercase tracking-widest bg-slate-500 text-white border-none">
-                      {tag}
-                    </Badge>
-                  ))}
-                  {doc.tags.length > 2 && (
-                    <span className="text-[9px] font-bold text-muted-foreground/60">+{doc.tags.length - 2}</span>
-                  )}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+          <DocumentCard
+            key={doc.id}
+            doc={doc}
+            folder={folder}
+            isOwner={isOwner}
+            hasActiveFilter={hasActiveFilter}
+            onView={handleView}
+            onShare={handleShare}
+            onDelete={handleDelete}
+            onStatusChange={handleStatusChange}
+          />
         );
       })}
       {viewingDoc && (
@@ -252,6 +148,148 @@ export function DocumentGrid() {
     </div>
   );
 }
+
+interface DocumentCardProps {
+  doc: Document;
+  folder: Folder | undefined;
+  isOwner: boolean;
+  hasActiveFilter: boolean;
+  onView: (id: string) => void;
+  onShare: (id: string) => void;
+  onDelete: (id: string) => void;
+  onStatusChange: (id: string, status: DocumentStatus | null) => void;
+}
+
+const DocumentCard = React.memo(function DocumentCard({
+  doc, folder, isOwner, hasActiveFilter, onView, onShare, onDelete, onStatusChange,
+}: DocumentCardProps) {
+  const isPublicFolder = !!folder?.isPublic;
+  const canManage = isOwner || isPublicFolder;
+  const isShared = !isPublicFolder && (doc.sharedWith?.length ?? 0) > 0;
+  const formattedDate = React.useMemo(() => format(new Date(doc.uploadDate), 'dd/MM/yyyy'), [doc.uploadDate]);
+
+  return (
+    <Card
+      className="group hover:shadow-xl transition-all duration-300 border-border/30 overflow-hidden cursor-pointer bg-card text-card-foreground"
+      onClick={() => onView(doc.id)}
+    >
+      <CardContent className="p-0">
+        <div className="aspect-[4/5] bg-card/60 relative group-hover:bg-card/70 transition-colors overflow-hidden border-b border-sidebar-border/20 flex items-center justify-center p-4">
+          {(isPublicFolder || isShared || doc.status) && (
+            <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 items-start">
+              {doc.status && (() => {
+                const cfg = STATUS_CONFIG[doc.status as DocumentStatus];
+                const StatusIcon = cfg.icon;
+                return (
+                  <Badge variant="secondary" className={`gap-1 text-[9px] font-bold uppercase tracking-widest border-none shadow-sm ${cfg.badgeClass}`}>
+                    <StatusIcon className="w-3 h-3" />
+                    {cfg.label}
+                  </Badge>
+                );
+              })()}
+              {(isPublicFolder || isShared) && (
+                <Badge variant="secondary" className="gap-1 text-[9px] font-bold uppercase tracking-widest bg-popover/90 text-popover-foreground border-none shadow-sm">
+                  {isPublicFolder ? <Globe className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+                  {isPublicFolder ? 'Pública' : 'Compartilhado'}
+                </Badge>
+              )}
+            </div>
+          )}
+
+          <DocumentThumbnail doc={doc} />
+
+          {/* Actions Overlay */}
+          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="icon" className="h-8 w-8 bg-popover text-popover-foreground shadow-sm hover:bg-popover/90 border-none">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 shadow-xl bg-popover text-popover-foreground">
+                <DropdownMenuItem onClick={() => onView(doc.id)}>
+                  <Eye className="w-4 h-4 mr-2" /> Visualizar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => window.open(doc.url, '_blank')}>
+                  <ExternalLink className="w-4 h-4 mr-2" /> Abrir Original
+                </DropdownMenuItem>
+                {isOwner && !isPublicFolder && (
+                  <DropdownMenuItem onClick={() => onShare(doc.id)}>
+                    <Share2 className="w-4 h-4 mr-2" /> Compartilhar
+                  </DropdownMenuItem>
+                )}
+                {canManage && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Tag className="w-4 h-4 mr-2" /> Marcar como
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent>
+                        {(Object.keys(STATUS_CONFIG) as DocumentStatus[]).map((key) => {
+                          const cfg = STATUS_CONFIG[key];
+                          const StatusIcon = cfg.icon;
+                          return (
+                            <DropdownMenuItem key={key} onClick={() => onStatusChange(doc.id, key)}>
+                              <StatusIcon className="w-4 h-4 mr-2" /> {cfg.label}
+                            </DropdownMenuItem>
+                          );
+                        })}
+                        {doc.status && (
+                          <DropdownMenuItem onClick={() => onStatusChange(doc.id, null)}>
+                            <X className="w-4 h-4 mr-2" /> Remover status
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+                )}
+                {canManage && (
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDelete(doc.id)}>
+                    <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <div className="p-4 bg-card relative">
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h3 className="font-bold text-sm truncate flex-1 text-card-foreground leading-tight" title={doc.name}>{doc.name}</h3>
+          </div>
+
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70 mb-3 font-semibold">
+            <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">PDF</span>
+            <span>•</span>
+            <span>{doc.size}</span>
+            <span>•</span>
+            <span>{formattedDate}</span>
+          </div>
+
+          {hasActiveFilter && (
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70 mb-3 font-semibold truncate">
+              <FolderIcon className="w-3 h-3 shrink-0" />
+              <span className="truncate">{folder ? folder.name : 'Raiz'}</span>
+            </div>
+          )}
+
+          {doc.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {doc.tags.slice(0, 2).map((tag, i) => (
+                <Badge key={i} variant="secondary" className="text-[9px] px-2 py-0 rounded-sm font-bold uppercase tracking-widest bg-slate-500 text-white border-none">
+                  {tag}
+                </Badge>
+              ))}
+              {doc.tags.length > 2 && (
+                <span className="text-[9px] font-bold text-muted-foreground/60">+{doc.tags.length - 2}</span>
+              )}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
 
 const DocumentThumbnail = React.memo(function DocumentThumbnail({ doc }: { doc: Document }) {
   const [imgFailed, setImgFailed] = React.useState(false);

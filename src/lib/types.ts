@@ -30,6 +30,7 @@ export interface Member {
   name: string;
   email: string;
   createdAt: string;
+  addedBy?: string;
 }
 
 export interface Notification {
