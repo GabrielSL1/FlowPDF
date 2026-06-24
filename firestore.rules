@@ -14,23 +14,22 @@ service cloud.firestore {
     // acesso a "sharedWith" usa o acessor .get(campo, []), que retorna uma lista
     // vazia (segura para "in") quando o campo não existe.
 
+    // OBS 3: o motor de Security Rules nega a consulta de "list" inteira em
+    // "documents" quando a regra de leitura depende de MAIS DE UM get()/exists()
+    // em outra coleção (ex: checar isPublic E sharedWith da pasta via get()),
+    // mesmo que nenhum documento realmente combine com a query. Por isso a flag
+    // "isPublic" da pasta é gravada diretamente no documento no momento do
+    // upload (campo "folderIsPublic"), e a checagem de pasta compartilhada
+    // (que precisa de get()) é a ÚNICA dependência cruzada que resta na regra.
+
     function isOwner(data) {
       return request.auth != null && data.userId == request.auth.uid;
     }
 
-    function folderGrantsRead(folderId) {
+    function folderSharedWithMe(folderId) {
       return folderId != null &&
         exists(/databases/$(database)/documents/folders/$(folderId)) &&
-        (
-          get(/databases/$(database)/documents/folders/$(folderId)).data.isPublic == true ||
-          request.auth.token.email in get(/databases/$(database)/documents/folders/$(folderId)).data.get('sharedWith', [])
-        );
-    }
-
-    function folderIsPublic(folderId) {
-      return folderId != null &&
-        exists(/databases/$(database)/documents/folders/$(folderId)) &&
-        get(/databases/$(database)/documents/folders/$(folderId)).data.isPublic == true;
+        request.auth.token.email in get(/databases/$(database)/documents/folders/$(folderId)).data.get('sharedWith', []);
     }
 
     // ---- folders ----
@@ -50,10 +49,11 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
         request.auth.token.email in resource.data.get('sharedWith', []) ||
-        folderGrantsRead(resource.data.folderId)
+        resource.data.folderIsPublic == true ||
+        folderSharedWithMe(resource.data.folderId)
       );
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isOwner(resource.data) || folderIsPublic(resource.data.folderId);
+      allow update, delete: if isOwner(resource.data) || resource.data.folderIsPublic == true;
     }
 
     // ---- members (lista compartilhada da equipe) ----

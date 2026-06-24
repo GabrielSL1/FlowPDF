@@ -10,7 +10,7 @@ import {
 import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
-export function useCollection<T = DocumentData>(query: Query<T> | null) {
+export function useCollection<T = DocumentData>(query: Query<T> | null, label?: string) {
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -33,8 +33,9 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       async (serverError: any) => {
         // Se for erro de permissão, emite o erro contextual
         if (serverError.code === 'permission-denied') {
+          const basePath = (query as any)._query?.path?.toString() || 'unknown';
           const permissionError = new FirestorePermissionError({
-            path: (query as any)._query?.path?.toString() || 'unknown',
+            path: label ? `${basePath} [${label}]` : basePath,
             operation: 'list',
           });
           errorEmitter.emit('permission-error', permissionError);

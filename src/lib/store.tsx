@@ -60,19 +60,19 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     if (!db || !user) return null;
     return query(collection(db, 'folders'), where('userId', '==', user.uid));
   }, [db, user]);
-  const { data: ownFoldersData } = useCollection<Folder>(ownFoldersQuery);
+  const { data: ownFoldersData } = useCollection<Folder>(ownFoldersQuery, 'ownFolders');
 
   const publicFoldersQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'folders'), where('isPublic', '==', true));
   }, [db, user]);
-  const { data: publicFoldersData } = useCollection<Folder>(publicFoldersQuery);
+  const { data: publicFoldersData } = useCollection<Folder>(publicFoldersQuery, 'publicFolders');
 
   const sharedFoldersQuery = useMemoFirebase(() => {
     if (!db || !user?.email) return null;
     return query(collection(db, 'folders'), where('sharedWith', 'array-contains', user.email));
   }, [db, user]);
-  const { data: sharedFoldersData } = useCollection<Folder>(sharedFoldersQuery);
+  const { data: sharedFoldersData } = useCollection<Folder>(sharedFoldersQuery, 'sharedFolders');
 
   React.useEffect(() => {
     if (!db || !user || publicFoldersData === null) return;
@@ -108,25 +108,25 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     if (!db || !user) return null;
     return query(collection(db, 'documents'), where('userId', '==', user.uid));
   }, [db, user]);
-  const { data: ownDocsData } = useCollection<Document>(ownDocsQuery);
+  const { data: ownDocsData } = useCollection<Document>(ownDocsQuery, 'ownDocs');
 
   const sharedDocsQuery = useMemoFirebase(() => {
     if (!db || !user?.email) return null;
     return query(collection(db, 'documents'), where('sharedWith', 'array-contains', user.email));
   }, [db, user]);
-  const { data: sharedDocsData } = useCollection<Document>(sharedDocsQuery);
+  const { data: sharedDocsData } = useCollection<Document>(sharedDocsQuery, 'sharedDocs');
 
   const publicFolderDocsQuery = useMemoFirebase(() => {
     if (!db || !user || publicFolderIds.length === 0) return null;
     return query(collection(db, 'documents'), where('folderId', 'in', publicFolderIds));
   }, [db, user, publicFolderIds]);
-  const { data: publicFolderDocsData } = useCollection<Document>(publicFolderDocsQuery);
+  const { data: publicFolderDocsData } = useCollection<Document>(publicFolderDocsQuery, 'publicFolderDocs');
 
   const sharedFolderDocsQuery = useMemoFirebase(() => {
     if (!db || !user || sharedFolderIds.length === 0) return null;
     return query(collection(db, 'documents'), where('folderId', 'in', sharedFolderIds));
   }, [db, user, sharedFolderIds]);
-  const { data: sharedFolderDocsData } = useCollection<Document>(sharedFolderDocsQuery);
+  const { data: sharedFolderDocsData } = useCollection<Document>(sharedFolderDocsQuery, 'sharedFolderDocs');
 
   const documents = useMemo(
     () => dedupeById(ownDocsData, sharedDocsData, publicFolderDocsData, sharedFolderDocsData)
@@ -138,7 +138,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     if (!db || !user) return null;
     return query(collection(db, 'members'));
   }, [db, user]);
-  const { data: membersData } = useCollection<Member>(membersQuery);
+  const { data: membersData } = useCollection<Member>(membersQuery, 'members');
 
   const members = useMemo(
     () => (membersData || []).sort((a, b) => a.name.localeCompare(b.name)),
@@ -222,10 +222,16 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
 
   const addDocument = useCallback(async (docData: Omit<Document, 'id'>) => {
     if (!user || !db) return;
+    const folder = state.folders.find(f => f.id === docData.folderId);
     const finalDocData = {
       ...docData,
       userId: user.uid,
-      uploadDate: new Date().toISOString()
+      uploadDate: new Date().toISOString(),
+      // Snapshot da visibilidade da pasta no momento do upload: evita que a
+      // regra de leitura de "documents" precise consultar a coleção "folders"
+      // via get() em consultas de lista, o que o motor de Security Rules do
+      // Firestore não consegue provar como seguro (nega a query inteira).
+      folderIsPublic: !!folder?.isPublic,
     };
 
     return addDoc(collection(db, 'documents'), finalDocData)
@@ -236,7 +242,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
           requestResourceData: finalDocData,
         }));
       });
-  }, [db, user]);
+  }, [db, user, state.folders]);
 
   const deleteDocument = useCallback(async (id: string) => {
     if (!user || !db) return;
