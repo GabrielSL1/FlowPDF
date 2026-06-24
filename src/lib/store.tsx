@@ -94,15 +94,12 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     [ownFoldersData, publicFoldersData, sharedFoldersData]
   );
 
-  const publicFolderIds = useMemo(
-    () => folders.filter(f => f.isPublic).map(f => f.id).slice(0, 30),
-    [folders]
-  );
-
-  const sharedFolderIds = useMemo(
-    () => folders.filter(f => !f.isPublic && f.userId !== user?.uid).map(f => f.id).slice(0, 30),
-    [folders, user?.uid]
-  );
+  // OBS: o motor de Security Rules só consegue provar que uma consulta de
+  // "list" é segura quando ela filtra exatamente pelo MESMO campo que a regra
+  // de leitura verifica (confirmado empiricamente com o emulador). Por isso as
+  // duas consultas abaixo filtram por "folderIsPublic"/"folderSharedWith" —
+  // campos gravados no próprio documento — em vez de "folderId in [...]",
+  // que usa um campo diferente do que a regra de "documents" checa.
 
   const ownDocsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -117,15 +114,15 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   const { data: sharedDocsData } = useCollection<Document>(sharedDocsQuery, 'sharedDocs');
 
   const publicFolderDocsQuery = useMemoFirebase(() => {
-    if (!db || !user || publicFolderIds.length === 0) return null;
-    return query(collection(db, 'documents'), where('folderId', 'in', publicFolderIds));
-  }, [db, user, publicFolderIds]);
+    if (!db || !user) return null;
+    return query(collection(db, 'documents'), where('folderIsPublic', '==', true));
+  }, [db, user]);
   const { data: publicFolderDocsData } = useCollection<Document>(publicFolderDocsQuery, 'publicFolderDocs');
 
   const sharedFolderDocsQuery = useMemoFirebase(() => {
-    if (!db || !user || sharedFolderIds.length === 0) return null;
-    return query(collection(db, 'documents'), where('folderId', 'in', sharedFolderIds));
-  }, [db, user, sharedFolderIds]);
+    if (!db || !user?.email) return null;
+    return query(collection(db, 'documents'), where('folderSharedWith', 'array-contains', user.email));
+  }, [db, user]);
   const { data: sharedFolderDocsData } = useCollection<Document>(sharedFolderDocsQuery, 'sharedFolderDocs');
 
   const documents = useMemo(
