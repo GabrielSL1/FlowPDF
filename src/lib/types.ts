@@ -23,6 +23,7 @@ export interface Folder {
   createdAt: string;
   userId?: string;
   isPublic?: boolean;
+  sharedWith?: string[];
 }
 
 export interface Member {

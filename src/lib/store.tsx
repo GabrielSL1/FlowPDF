@@ -25,6 +25,7 @@ interface FlowPDFContextType {
   deleteDocument: (id: string) => Promise<void>;
   updateDocumentSharing: (id: string, sharedWith: string[]) => Promise<void>;
   updateDocumentStatus: (id: string, status: DocumentStatus | null) => Promise<void>;
+  updateFolderSharing: (id: string, sharedWith: string[]) => Promise<void>;
   addMember: (name: string, email: string) => Promise<void>;
   deleteMember: (id: string) => Promise<void>;
   setCurrentFolder: (id: string | null) => void;
@@ -67,6 +68,12 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   }, [db, user]);
   const { data: publicFoldersData } = useCollection<Folder>(publicFoldersQuery);
 
+  const sharedFoldersQuery = useMemoFirebase(() => {
+    if (!db || !user?.email) return null;
+    return query(collection(db, 'folders'), where('sharedWith', 'array-contains', user.email));
+  }, [db, user]);
+  const { data: sharedFoldersData } = useCollection<Folder>(sharedFoldersQuery);
+
   React.useEffect(() => {
     if (!db || !user || publicFoldersData === null) return;
     if (publicFoldersData.length > 0) return;
@@ -83,13 +90,18 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   }, [db, user, publicFoldersData]);
 
   const folders = useMemo(
-    () => dedupeById(ownFoldersData, publicFoldersData).sort((a, b) => a.name.localeCompare(b.name)),
-    [ownFoldersData, publicFoldersData]
+    () => dedupeById(ownFoldersData, publicFoldersData, sharedFoldersData).sort((a, b) => a.name.localeCompare(b.name)),
+    [ownFoldersData, publicFoldersData, sharedFoldersData]
   );
 
   const publicFolderIds = useMemo(
     () => folders.filter(f => f.isPublic).map(f => f.id).slice(0, 30),
     [folders]
+  );
+
+  const sharedFolderIds = useMemo(
+    () => folders.filter(f => !f.isPublic && f.userId !== user?.uid).map(f => f.id).slice(0, 30),
+    [folders, user?.uid]
   );
 
   const ownDocsQuery = useMemoFirebase(() => {
@@ -110,10 +122,16 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
   }, [db, user, publicFolderIds]);
   const { data: publicFolderDocsData } = useCollection<Document>(publicFolderDocsQuery);
 
+  const sharedFolderDocsQuery = useMemoFirebase(() => {
+    if (!db || !user || sharedFolderIds.length === 0) return null;
+    return query(collection(db, 'documents'), where('folderId', 'in', sharedFolderIds));
+  }, [db, user, sharedFolderIds]);
+  const { data: sharedFolderDocsData } = useCollection<Document>(sharedFolderDocsQuery);
+
   const documents = useMemo(
-    () => dedupeById(ownDocsData, sharedDocsData, publicFolderDocsData)
+    () => dedupeById(ownDocsData, sharedDocsData, publicFolderDocsData, sharedFolderDocsData)
       .sort((a, b) => b.uploadDate.localeCompare(a.uploadDate)),
-    [ownDocsData, sharedDocsData, publicFolderDocsData]
+    [ownDocsData, sharedDocsData, publicFolderDocsData, sharedFolderDocsData]
   );
 
   const membersQuery = useMemoFirebase(() => {
@@ -181,10 +199,20 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     ];
 
     const FIRESTORE_BATCH_LIMIT = 500;
-    for (let i = 0; i < refsToDelete.length; i += FIRESTORE_BATCH_LIMIT) {
-      const batch = writeBatch(db);
-      refsToDelete.slice(i, i + FIRESTORE_BATCH_LIMIT).forEach(ref => batch.delete(ref));
-      await batch.commit();
+    try {
+      for (let i = 0; i < refsToDelete.length; i += FIRESTORE_BATCH_LIMIT) {
+        const batch = writeBatch(db);
+        refsToDelete.slice(i, i + FIRESTORE_BATCH_LIMIT).forEach(ref => batch.delete(ref));
+        await batch.commit();
+      }
+    } catch (err) {
+      console.warn("Firestore Error:", err);
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: `folders/${id}`,
+        operation: 'delete',
+        requestResourceData: undefined,
+      }));
+      return;
     }
 
     if (currentFolderId && folderIdsToDelete.includes(currentFolderId)) {
@@ -221,6 +249,18 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
       console.warn("Firestore Error:", err);
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: `documents/${id}`,
+        operation: 'update',
+        requestResourceData: { sharedWith },
+      }));
+    });
+  }, [db, user]);
+
+  const updateFolderSharing = useCallback(async (id: string, sharedWith: string[]) => {
+    if (!user || !db) return;
+    await updateDoc(doc(db, 'folders', id), { sharedWith }).catch((err) => {
+      console.warn("Firestore Error:", err);
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: `folders/${id}`,
         operation: 'update',
         requestResourceData: { sharedWith },
       }));
@@ -272,6 +312,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     deleteDocument,
     updateDocumentSharing,
     updateDocumentStatus,
+    updateFolderSharing,
     addMember,
     deleteMember,
     setCurrentFolder: setCurrentFolderId,
@@ -279,7 +320,7 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
     setOriginFilter,
     setDateFilter,
     setCustomDateRange
-  }), [state, addFolder, deleteFolder, addDocument, deleteDocument, updateDocumentSharing, updateDocumentStatus, addMember, deleteMember, setCurrentFolderId, setSearchQuery, setOriginFilter, setDateFilter, setCustomDateRange]);
+  }), [state, addFolder, deleteFolder, addDocument, deleteDocument, updateDocumentSharing, updateDocumentStatus, updateFolderSharing, addMember, deleteMember, setCurrentFolderId, setSearchQuery, setOriginFilter, setDateFilter, setCustomDateRange]);
 
   return (
     <FlowPDFContext.Provider value={value}>

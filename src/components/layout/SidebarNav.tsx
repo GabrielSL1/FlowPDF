@@ -14,7 +14,9 @@ import {
   HardDrive,
   LogOut,
   Info,
-  Globe
+  Globe,
+  Share2,
+  Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -48,6 +50,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ShareFolderDialog } from '@/components/dashboard/ShareFolderDialog';
 
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { state, setCurrentFolder, addFolder, deleteFolder } = useFlowPDF();
@@ -59,6 +62,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void } = {}) {
   const [newFolderName, setNewFolderName] = useState("");
   const [parentFolderId, setParentFolderId] = useState<string | null>(null);
   const [newFolderPublic, setNewFolderPublic] = useState(false);
+  const [sharingFolderId, setSharingFolderId] = useState<string | null>(null);
 
   const rootFolders = state.folders.filter(f => f.parentId === null);
 
@@ -80,6 +84,10 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void } = {}) {
     setNewFolderName("");
     setNewFolderPublic(false);
     setIsDialogOpen(true);
+  }, []);
+
+  const handleShareFolder = React.useCallback((id: string) => {
+    setSharingFolderId(id);
   }, []);
 
   const handleCreateFolder = async () => {
@@ -145,6 +153,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void } = {}) {
                 currentUserId={user?.uid}
                 onSelect={(id) => { setCurrentFolder(id); onNavigate?.(); }}
                 onDelete={deleteFolder}
+                onShare={handleShareFolder}
                 onAddSubfolder={openNewFolderDialog}
               />
             ))}
@@ -219,6 +228,11 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void } = {}) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {sharingFolderId && (() => {
+        const folder = state.folders.find(f => f.id === sharingFolderId);
+        return folder ? <ShareFolderDialog folder={folder} onClose={() => setSharingFolderId(null)} /> : null;
+      })()}
     </div>
   );
 }
@@ -230,6 +244,7 @@ const FolderItem = React.memo(function FolderItem({
   currentUserId,
   onSelect,
   onDelete,
+  onShare,
   onAddSubfolder
 }: {
   folder: Folder;
@@ -238,12 +253,15 @@ const FolderItem = React.memo(function FolderItem({
   currentUserId?: string;
   onSelect: (id: string | null) => void;
   onDelete: (id: string) => void;
+  onShare: (id: string) => void;
   onAddSubfolder: (parentId: string) => void;
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const children = allFolders.filter(f => f.parentId === folder.id);
   const isActive = currentFolderId === folder.id;
-  const canDelete = !folder.isPublic || folder.userId === currentUserId;
+  const isOwner = folder.userId === currentUserId;
+  const canDelete = isOwner || !!folder.isPublic;
+  const canShare = isOwner && !folder.isPublic;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -274,6 +292,11 @@ const FolderItem = React.memo(function FolderItem({
               <Globe className="w-3 h-3 shrink-0 opacity-60" />
             </span>
           )}
+          {!folder.isPublic && (folder.sharedWith?.length ?? 0) > 0 && (
+            <span title="Pasta compartilhada">
+              <Users className="w-3 h-3 shrink-0 opacity-60" />
+            </span>
+          )}
         </Button>
 
         <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 absolute right-1">
@@ -289,6 +312,27 @@ const FolderItem = React.memo(function FolderItem({
           >
             <Plus className="w-3 h-3" />
           </Button>
+
+          {canShare && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-white/50 hover:text-white hover:bg-sidebar-accent rounded-full bg-sidebar-background/80"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onShare(folder.id);
+                    }}
+                  >
+                    <Share2 className="w-3 h-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Compartilhar</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
 
           {canDelete && (
             <AlertDialog>
@@ -345,6 +389,7 @@ const FolderItem = React.memo(function FolderItem({
               currentUserId={currentUserId}
               onSelect={onSelect}
               onDelete={onDelete}
+              onShare={onShare}
               onAddSubfolder={onAddSubfolder}
             />
           ))}

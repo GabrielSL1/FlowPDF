@@ -18,12 +18,22 @@ service cloud.firestore {
         get(/databases/$(database)/documents/folders/$(folderId)).data.isPublic == true;
     }
 
+    function folderSharedWithMe(folderId) {
+      return folderId != null &&
+        exists(/databases/$(database)/documents/folders/$(folderId)) &&
+        request.auth.token.email in get(/databases/$(database)/documents/folders/$(folderId)).data.sharedWith;
+    }
+
     // ---- folders ----
     match /folders/{folderId} {
-      allow read: if (request.auth != null && resource.data.userId == request.auth.uid)
-        || resource.data.isPublic == true;
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.isPublic == true ||
+        request.auth.token.email in resource.data.sharedWith
+      );
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isOwner(resource.data);
+      allow update: if isOwner(resource.data);
+      allow delete: if isOwner(resource.data) || resource.data.isPublic == true;
     }
 
     // ---- documents ----
@@ -31,7 +41,8 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
         request.auth.token.email in resource.data.sharedWith ||
-        folderIsPublic(resource.data.folderId)
+        folderIsPublic(resource.data.folderId) ||
+        folderSharedWithMe(resource.data.folderId)
       );
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isOwner(resource.data) || folderIsPublic(resource.data.folderId);
