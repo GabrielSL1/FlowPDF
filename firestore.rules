@@ -15,21 +15,16 @@ service cloud.firestore {
     // vazia (segura para "in") quando o campo não existe.
 
     // OBS 3: o motor de Security Rules nega a consulta de "list" inteira em
-    // "documents" quando a regra de leitura depende de MAIS DE UM get()/exists()
-    // em outra coleção (ex: checar isPublic E sharedWith da pasta via get()),
-    // mesmo que nenhum documento realmente combine com a query. Por isso a flag
-    // "isPublic" da pasta é gravada diretamente no documento no momento do
-    // upload (campo "folderIsPublic"), e a checagem de pasta compartilhada
-    // (que precisa de get()) é a ÚNICA dependência cruzada que resta na regra.
+    // "documents" quando a regra de leitura depende de QUALQUER get()/exists()
+    // em outra coleção (ex: checar isPublic ou sharedWith da pasta via get()),
+    // mesmo que nenhum documento realmente combine com a query e mesmo usando
+    // apenas uma checagem. Por isso a regra de "documents" NUNCA acessa a
+    // coleção "folders" — tudo que ela precisa (isPublic e sharedWith da pasta
+    // no momento do upload) é gravado diretamente no documento (campos
+    // "folderIsPublic" e "folderSharedWith").
 
     function isOwner(data) {
       return request.auth != null && data.userId == request.auth.uid;
-    }
-
-    function folderSharedWithMe(folderId) {
-      return folderId != null &&
-        exists(/databases/$(database)/documents/folders/$(folderId)) &&
-        request.auth.token.email in get(/databases/$(database)/documents/folders/$(folderId)).data.get('sharedWith', []);
     }
 
     // ---- folders ----
@@ -50,7 +45,7 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid ||
         request.auth.token.email in resource.data.get('sharedWith', []) ||
         resource.data.folderIsPublic == true ||
-        folderSharedWithMe(resource.data.folderId)
+        request.auth.token.email in resource.data.get('folderSharedWith', [])
       );
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isOwner(resource.data) || resource.data.folderIsPublic == true;

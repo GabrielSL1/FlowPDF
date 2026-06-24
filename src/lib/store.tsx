@@ -227,11 +227,13 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
       ...docData,
       userId: user.uid,
       uploadDate: new Date().toISOString(),
-      // Snapshot da visibilidade da pasta no momento do upload: evita que a
-      // regra de leitura de "documents" precise consultar a coleção "folders"
-      // via get() em consultas de lista, o que o motor de Security Rules do
-      // Firestore não consegue provar como seguro (nega a query inteira).
+      // Snapshot da visibilidade/compartilhamento da pasta no momento do
+      // upload: a regra de leitura de "documents" não pode consultar a
+      // coleção "folders" via get()/exists() — o motor de Security Rules do
+      // Firestore nega QUALQUER consulta de lista cuja regra dependa disso,
+      // mesmo que nenhum documento realmente combine com a query.
       folderIsPublic: !!folder?.isPublic,
+      folderSharedWith: folder?.sharedWith || [],
     };
 
     return addDoc(collection(db, 'documents'), finalDocData)
@@ -263,15 +265,28 @@ export function FlowPDFProvider({ children }: { children: React.ReactNode }) {
 
   const updateFolderSharing = useCallback(async (id: string, sharedWith: string[]) => {
     if (!user || !db) return;
-    await updateDoc(doc(db, 'folders', id), { sharedWith }).catch((err) => {
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'folders', id), { sharedWith });
+      // Mantém em sincronia o snapshot "folderSharedWith" gravado nos documentos
+      // (necessário porque a regra de leitura de "documents" não pode consultar
+      // a coleção "folders" via get() em consultas de lista). Só os documentos
+      // que o próprio usuário possui podem ser atualizados aqui — os demais
+      // (de outros colaboradores na mesma pasta) refletem a mudança apenas no
+      // próximo envio/edição deles.
+      state.documents
+        .filter(d => d.folderId === id && d.userId === user.uid)
+        .forEach(d => batch.update(doc(db, 'documents', d.id), { folderSharedWith: sharedWith }));
+      await batch.commit();
+    } catch (err) {
       console.warn("Firestore Error:", err);
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: `folders/${id}`,
         operation: 'update',
         requestResourceData: { sharedWith },
       }));
-    });
-  }, [db, user]);
+    }
+  }, [db, user, state.documents]);
 
   const updateDocumentStatus = useCallback(async (id: string, status: DocumentStatus | null) => {
     if (!user || !db) return;
