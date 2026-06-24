@@ -6,9 +6,14 @@ import { Button } from '@/components/ui/button';
 
 export function ThemeToggle() {
   const [isDark, setIsDark] = React.useState<boolean | null>(null);
+  // Evita que o efeito de inicialização sobrescreva um clique que o usuário
+  // já tenha feito antes dele terminar de ler o localStorage (condição de
+  // corrida que fazia o toggle "não funcionar" em cliques rápidos no mobile).
+  const userInteractedRef = React.useRef(false);
 
   // initialize on mount to avoid SSR/hydration mismatch
   React.useEffect(() => {
+    if (userInteractedRef.current) return;
     const stored = localStorage.getItem('theme');
     if (stored) {
       setIsDark(stored === 'dark');
@@ -29,11 +34,16 @@ export function ThemeToggle() {
     }
   }, [isDark]);
 
+  const toggleTheme = () => {
+    userInteractedRef.current = true;
+    setIsDark(!document.documentElement.classList.contains('dark'));
+  };
+
   return (
     <Button
       variant="ghost"
       size="icon"
-      onClick={() => setIsDark((d) => (d === null ? true : !d))}
+      onClick={toggleTheme}
       aria-label="Alternar tema"
     >
       {isDark === null ? (
