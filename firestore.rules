@@ -8,8 +8,23 @@ service cloud.firestore {
     // Por isso o "sharedWith is list" foi removido; os dados sempre gravam sharedWith como
     // array (mesmo vazio), então a checagem extra era redundante.
 
+    // OBS 2: campos opcionais (sharedWith) podem não existir em documentos/pastas
+    // antigos criados antes desse campo existir. Comparar "email in <campo ausente>"
+    // gera erro de tipo nas Rules e derruba a consulta inteira — por isso todo
+    // acesso a "sharedWith" usa o acessor .get(campo, []), que retorna uma lista
+    // vazia (segura para "in") quando o campo não existe.
+
     function isOwner(data) {
       return request.auth != null && data.userId == request.auth.uid;
+    }
+
+    function folderGrantsRead(folderId) {
+      return folderId != null &&
+        exists(/databases/$(database)/documents/folders/$(folderId)) &&
+        (
+          get(/databases/$(database)/documents/folders/$(folderId)).data.isPublic == true ||
+          request.auth.token.email in get(/databases/$(database)/documents/folders/$(folderId)).data.get('sharedWith', [])
+        );
     }
 
     function folderIsPublic(folderId) {
@@ -18,18 +33,12 @@ service cloud.firestore {
         get(/databases/$(database)/documents/folders/$(folderId)).data.isPublic == true;
     }
 
-    function folderSharedWithMe(folderId) {
-      return folderId != null &&
-        exists(/databases/$(database)/documents/folders/$(folderId)) &&
-        request.auth.token.email in get(/databases/$(database)/documents/folders/$(folderId)).data.sharedWith;
-    }
-
     // ---- folders ----
     match /folders/{folderId} {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
         resource.data.isPublic == true ||
-        request.auth.token.email in resource.data.sharedWith
+        request.auth.token.email in resource.data.get('sharedWith', [])
       );
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       allow update: if isOwner(resource.data);
@@ -40,9 +49,8 @@ service cloud.firestore {
     match /documents/{docId} {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
-        request.auth.token.email in resource.data.sharedWith ||
-        folderIsPublic(resource.data.folderId) ||
-        folderSharedWithMe(resource.data.folderId)
+        request.auth.token.email in resource.data.get('sharedWith', []) ||
+        folderGrantsRead(resource.data.folderId)
       );
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isOwner(resource.data) || folderIsPublic(resource.data.folderId);
