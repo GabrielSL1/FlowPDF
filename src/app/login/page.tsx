@@ -9,6 +9,7 @@ import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   updateProfile
 } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
@@ -89,6 +90,35 @@ export default function LoginPage() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    if (!email) {
+      toast({
+        variant: "destructive",
+        title: "Informe seu e-mail",
+        description: "Digite o e-mail da sua conta no campo acima antes de solicitar a redefinição de senha.",
+      });
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error: any) {
+      // Não revela se o e-mail existe ou não na base (evita enumeração de usuários) —
+      // mostramos a mesma mensagem de sucesso independente do resultado, exceto para
+      // erros que não dependem da existência da conta (ex: formato de e-mail inválido).
+      if (error.code !== 'auth/invalid-email') {
+        setAuthLoading(false);
+        toast({ title: "Se este e-mail estiver cadastrado, um link de redefinição foi enviado." });
+        return;
+      }
+      handleFirebaseError(error);
+      setAuthLoading(false);
+      return;
+    }
+    setAuthLoading(false);
+    toast({ title: "Se este e-mail estiver cadastrado, um link de redefinição foi enviado." });
+  };
+
   const handleGoogleLogin = async () => {
     if (!auth) return;
     setAuthLoading(true);
@@ -139,6 +169,16 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <Label htmlFor="login-password">Senha</Label>
                 <Input id="login-password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </div>
+              <div className="text-right">
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground hover:text-primary underline-offset-2 hover:underline"
+                  onClick={handlePasswordReset}
+                  disabled={authLoading}
+                >
+                  Esqueci minha senha
+                </button>
               </div>
               <Button className="w-full mt-2" onClick={() => handleEmailAuth('login')} disabled={authLoading}>
                 {authLoading ? <Loader2 className="animate-spin" /> : "Entrar"}

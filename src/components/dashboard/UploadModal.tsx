@@ -134,6 +134,23 @@ export function UploadModal() {
       }
       console.log('[UploadModal] PDF enviado com sucesso.');
 
+      setProgress(60);
+      setStatus('Verificando arquivo...');
+      console.log(`[UploadModal] Verificando assinatura do arquivo em "${signResult.file.path}"...`);
+
+      const verifyRes = await fetch('/api/upload/verify', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: signResult.file.path }),
+      });
+      const verifyResult = await verifyRes.json().catch(() => null);
+
+      if (!verifyRes.ok || !verifyResult?.ok) {
+        console.error('[UploadModal] Verificação do arquivo falhou:', verifyRes.status, verifyResult);
+        throw new Error(verifyResult?.error || 'O arquivo enviado não pôde ser validado como PDF.');
+      }
+      console.log('[UploadModal] Arquivo verificado com sucesso.');
+
       setProgress(70);
 
       let thumbnailUrl: string | undefined;

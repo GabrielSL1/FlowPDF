@@ -18,13 +18,49 @@ service cloud.firestore {
     // "documents" quando a regra de leitura depende de QUALQUER get()/exists()
     // em outra coleção (ex: checar isPublic ou sharedWith da pasta via get()),
     // mesmo que nenhum documento realmente combine com a query e mesmo usando
-    // apenas uma checagem. Por isso a regra de "documents" NUNCA acessa a
-    // coleção "folders" — tudo que ela precisa (isPublic e sharedWith da pasta
-    // no momento do upload) é gravado diretamente no documento (campos
-    // "folderIsPublic" e "folderSharedWith").
+    // apenas uma checagem. Por isso a regra de LEITURA de "documents" nunca
+    // acessa a coleção "folders" — tudo que ela precisa (isPublic e sharedWith
+    // da pasta no momento do upload) é gravado diretamente no documento
+    // (campos "folderIsPublic" e "folderSharedWith"). Isso é seguro para LEITURA
+    // (list), mas como esses campos são só "auto-declarados" pelo cliente, a
+    // regra de CRIAÇÃO (que NÃO sofre da mesma limitação, pois "create" nunca é
+    // uma operação de "list") valida que eles batem com o estado real da pasta
+    // — ver OBS 4.
+
+    // OBS 4 (auditoria de segurança): sem essa validação no "create", qualquer
+    // usuário autenticado poderia criar um "documents" com folderIsPublic=true
+    // (mesmo a pasta não sendo pública, ou nem existindo) e ele apareceria na
+    // aba pública para TODOS os usuários — ou com folderSharedWith contendo o
+    // e-mail de qualquer vítima, fazendo o documento malicioso aparecer na
+    // caixa de "compartilhados comigo" dela. Combinado com uma URL arbitrária
+    // (ver OBS 5), isso seria um vetor de phishing / conteúdo malicioso.
 
     function isOwner(data) {
       return request.auth != null && data.userId == request.auth.uid;
+    }
+
+    function folderRealIsPublic(folderId) {
+      return folderId != null &&
+        exists(/databases/$(database)/documents/folders/$(folderId)) &&
+        get(/databases/$(database)/documents/folders/$(folderId)).data.isPublic == true;
+    }
+
+    function folderRealSharedWith(folderId) {
+      return folderId != null && exists(/databases/$(database)/documents/folders/$(folderId))
+        ? get(/databases/$(database)/documents/folders/$(folderId)).data.get('sharedWith', [])
+        : [];
+    }
+
+    // OBS 5 (auditoria de segurança): sem essa validação, um usuário malicioso
+    // poderia gravar uma URL arbitrária (ex: um site de phishing, ou um
+    // "data:text/html,<script>..." que executaria dentro do <iframe> do
+    // visualizador) em "url"/"thumbnailUrl" de um documento que ele mesmo
+    // controla, e ela seria renderizada para QUALQUER usuário que abrisse esse
+    // documento (em pasta pública ou compartilhada). Por isso essas URLs só
+    // podem apontar para o nosso próprio bucket no Supabase Storage.
+    function isOwnStorageUrl(url) {
+      return url is string &&
+        url.matches('^https://hvbzkzzcrtopnclbkkbl\\.supabase\\.co/storage/v1/object/public/documents/.*$');
     }
 
     // ---- folders ----
@@ -47,8 +83,21 @@ service cloud.firestore {
         resource.data.folderIsPublic == true ||
         request.auth.token.email in resource.data.get('folderSharedWith', [])
       );
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isOwner(resource.data) || resource.data.folderIsPublic == true;
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid &&
+        isOwnStorageUrl(request.resource.data.url) &&
+        (!('thumbnailUrl' in request.resource.data) || isOwnStorageUrl(request.resource.data.thumbnailUrl)) &&
+        request.resource.data.get('folderIsPublic', false) == folderRealIsPublic(request.resource.data.folderId) &&
+        request.resource.data.get('folderSharedWith', []) == folderRealSharedWith(request.resource.data.folderId);
+      // Donos podem alterar qualquer campo do próprio documento. Quem não é
+      // dono só pode agir através de uma pasta pública, e só pode mudar o
+      // "status" (ex: marcar como "revisão") — nunca a url, o nome ou para
+      // quem o documento está compartilhado (ver OBS 4/5).
+      allow update: if isOwner(resource.data) || (
+        resource.data.folderIsPublic == true &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+      );
+      allow delete: if isOwner(resource.data) || resource.data.folderIsPublic == true;
     }
 
     // ---- members (lista compartilhada da equipe) ----
@@ -67,11 +116,14 @@ service cloud.firestore {
         request.auth.token.email in resource.data.sharedWith
       );
       allow create: if request.auth != null;
+      // Só os campos de "lida" podem ser alterados por quem não é o autor —
+      // sem isso, qualquer usuário que consiga LER uma notificação pública
+      // também conseguiria reescrever sua mensagem (defacement).
       allow update: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
         resource.data.isPublic == true ||
         request.auth.token.email in resource.data.sharedWith
-      );
+      ) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readBy']);
       allow delete: if false;
     }
   }

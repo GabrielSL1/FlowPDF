@@ -22,6 +22,7 @@ import { format } from 'date-fns';
 import { PDFViewerModal } from './PDFViewerModal';
 import { ShareDocumentDialog } from './ShareDocumentDialog';
 import { Document, Folder, OriginFilter, DateFilter, DateRange, DocumentStatus } from '@/lib/types';
+import { isTrustedStorageUrl } from '@/lib/trusted-url';
 
 const STATUS_CONFIG: Record<DocumentStatus, { label: string; badgeClass: string; icon: typeof AlertCircle }> = {
   importante: { label: 'Importante', badgeClass: 'bg-red-600 text-white', icon: AlertCircle },
@@ -210,7 +211,10 @@ const DocumentCard = React.memo(function DocumentCard({
                 <DropdownMenuItem onClick={() => onView(doc.id)}>
                   <Eye className="w-4 h-4 mr-2" /> Visualizar
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => window.open(doc.url, '_blank')}>
+                <DropdownMenuItem onClick={() => {
+                  if (!isTrustedStorageUrl(doc.url)) return;
+                  window.open(doc.url, '_blank', 'noopener,noreferrer');
+                }}>
                   <ExternalLink className="w-4 h-4 mr-2" /> Abrir Original
                 </DropdownMenuItem>
                 {isOwner && !isPublicFolder && (

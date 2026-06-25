@@ -14,6 +14,7 @@ import { Download, Tag, FileText, ExternalLink, Sparkles, MessageSquare } from '
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { AttachmentsPanel } from './AttachmentsPanel';
+import { isTrustedStorageUrl } from '@/lib/trusted-url';
 
 export function PDFViewerModal({ docId, onClose }: { docId: string, onClose: () => void }) {
   const { state } = useFlowPDF();
@@ -21,7 +22,10 @@ export function PDFViewerModal({ docId, onClose }: { docId: string, onClose: () 
 
   if (!doc) return null;
 
-  const hasValidUrl = doc.url && doc.url !== '#';
+  // Defesa em profundidade: nunca renderiza/abre uma URL fora do nosso
+  // próprio Storage, mesmo que ela tenha chegado até aqui de alguma forma
+  // (ver src/lib/trusted-url.ts).
+  const hasValidUrl = isTrustedStorageUrl(doc.url);
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -43,10 +47,14 @@ export function PDFViewerModal({ docId, onClose }: { docId: string, onClose: () 
             </div>
           </div>
           <div className="flex items-center gap-2 pr-10">
-            <Button variant="outline" size="sm" className="hidden sm:flex gap-2 h-9" onClick={() => window.open(doc.url, '_blank')}>
+            <Button variant="outline" size="sm" className="hidden sm:flex gap-2 h-9" disabled={!hasValidUrl} onClick={() => {
+              if (!isTrustedStorageUrl(doc.url)) return;
+              window.open(doc.url, '_blank', 'noopener,noreferrer');
+            }}>
               <ExternalLink className="w-4 h-4" /> Abrir Original
             </Button>
-            <Button size="sm" className="gap-2 h-9" onClick={() => {
+            <Button size="sm" className="gap-2 h-9" disabled={!hasValidUrl} onClick={() => {
+              if (!isTrustedStorageUrl(doc.url)) return;
               const link = document.createElement('a');
               link.href = doc.url;
               link.download = doc.name;

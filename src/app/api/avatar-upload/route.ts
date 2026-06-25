@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyIdToken } from '@/lib/firebase-admin';
 import { supabaseAdmin, DOCUMENTS_BUCKET } from '@/lib/supabase-admin';
 import { sanitizeStorageFileName } from '@/lib/storage-utils';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -23,6 +24,15 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       console.error('Token inválido:', err);
       return NextResponse.json({ error: 'Sessão inválida. Faça login novamente.' }, { status: 401 });
+    }
+
+    const retryAfter = checkRateLimit(`avatar-upload:${uid}`, 10, 60_000);
+    if (retryAfter !== null) {
+      console.warn(`[api/avatar-upload] uid=${uid} excedeu o limite de requisições (retry em ${retryAfter}s).`);
+      return NextResponse.json(
+        { error: 'Muitas tentativas. Aguarde um momento e tente novamente.' },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      );
     }
 
     const formData = await req.formData();

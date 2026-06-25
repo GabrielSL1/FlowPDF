@@ -5,6 +5,7 @@ import { Paperclip, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Document } from '@/lib/types';
 import { extractPdfAttachments, formatAttachmentSize } from '@/lib/pdf-attachments';
+import { isTrustedStorageUrl } from '@/lib/trusted-url';
 import { useToast } from '@/hooks/use-toast';
 
 function formatAttachmentDate(date: string | null): string {
@@ -23,7 +24,7 @@ export function AttachmentsPanel({ doc }: { doc: Document }) {
   if (!doc.attachments || doc.attachments.length === 0) return null;
 
   const handleDownload = async (attachmentName: string) => {
-    if (!doc.url || doc.url === '#') {
+    if (!isTrustedStorageUrl(doc.url)) {
       toast({ title: "Documento original indisponível.", variant: "destructive" });
       return;
     }
