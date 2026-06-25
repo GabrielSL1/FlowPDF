@@ -4,7 +4,7 @@
 import React from 'react';
 import { useFlowPDF } from '@/lib/store';
 import { useUser } from '@/firebase';
-import { FileText, MoreVertical, Trash2, Eye, ExternalLink, Share2, Users, Globe, Folder as FolderIcon, Tag, AlertCircle, ClipboardCheck, CheckCircle, X } from 'lucide-react';
+import { FileText, MoreVertical, Trash2, Eye, ExternalLink, Share2, Users, Globe, Folder as FolderIcon, Tag, AlertCircle, ClipboardCheck, CheckCircle, X, Paperclip } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -256,6 +256,15 @@ const DocumentCard = React.memo(function DocumentCard({
         <div className="p-4 bg-card relative">
           <div className="flex items-start justify-between gap-2 mb-1">
             <h3 className="font-bold text-sm truncate flex-1 text-card-foreground leading-tight" title={doc.name}>{doc.name}</h3>
+            {doc.attachments && doc.attachments.length > 0 && (
+              <span
+                className="flex items-center gap-0.5 text-[10px] text-muted-foreground/70 font-semibold shrink-0 mt-0.5"
+                title={`${doc.attachments.length} anexo(s) incorporado(s)`}
+              >
+                <Paperclip className="w-3 h-3" />
+                {doc.attachments.length}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70 mb-3 font-semibold">

@@ -1,13 +1,4 @@
-let workerConfigured = false;
-
-async function loadPdfJs() {
-  const pdfjsLib = await import('pdfjs-dist');
-  if (!workerConfigured) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-    workerConfigured = true;
-  }
-  return pdfjsLib;
-}
+import { loadPdfJs } from './pdfjs-loader';
 
 export async function generatePdfThumbnail(file: File): Promise<Blob | null> {
   try {

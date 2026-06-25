@@ -1,5 +1,12 @@
 export type DocumentStatus = 'importante' | 'revisao' | 'aprovado';
 
+export interface DocumentAttachment {
+  name: string;
+  mimeType: string;
+  size: number;
+  date: string | null;
+}
+
 export interface Document {
   id: string;
   name: string;
@@ -14,6 +21,7 @@ export interface Document {
   userId?: string;
   sharedWith?: string[];
   status?: DocumentStatus | null;
+  attachments?: DocumentAttachment[];
 }
 
 export interface Folder {

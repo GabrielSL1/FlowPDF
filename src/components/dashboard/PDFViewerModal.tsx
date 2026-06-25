@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Download, Tag, FileText, ExternalLink, Sparkles, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { AttachmentsPanel } from './AttachmentsPanel';
 
 export function PDFViewerModal({ docId, onClose }: { docId: string, onClose: () => void }) {
   const { state } = useFlowPDF();
@@ -103,6 +104,13 @@ export function PDFViewerModal({ docId, onClose }: { docId: string, onClose: () 
                   ))}
                 </div>
               </div>
+
+              {doc.attachments && doc.attachments.length > 0 && (
+                <>
+                  <Separator />
+                  <AttachmentsPanel doc={doc} />
+                </>
+              )}
 
               <Separator />
 

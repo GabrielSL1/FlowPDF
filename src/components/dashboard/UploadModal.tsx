@@ -18,6 +18,7 @@ import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { generatePdfThumbnail } from '@/lib/pdf-thumbnail';
 import { optimizePdf } from '@/lib/pdf-optimize';
+import { extractPdfAttachmentsMeta } from '@/lib/pdf-attachments';
 import { collection, addDoc } from 'firebase/firestore';
 
 export function UploadModal() {
@@ -65,12 +66,29 @@ export function UploadModal() {
       setProgress(15);
       setStatus('Gerando preview e analisando arquivo...');
 
-      // Geração de preview e análise de IA rodam em paralelo (são independentes)
-      const [thumbnailBlob, aiResults] = await Promise.all([
+      // Geração de preview, análise de IA e detecção de anexos incorporados
+      // rodam em paralelo (são independentes entre si)
+      let attachmentDetectionFailed = false;
+      const [thumbnailBlob, aiResults, attachments] = await Promise.all([
         generatePdfThumbnail(file),
         tagDocument({ documentContent: file.name })
           .catch(() => ({ tags: ['Geral'], keywords: [file.name] })),
+        extractPdfAttachmentsMeta(file)
+          .catch((err) => {
+            console.error('[UploadModal] Falha ao detectar anexos incorporados, continuando upload sem eles:', err);
+            attachmentDetectionFailed = true;
+            return [];
+          }),
       ]);
+
+      if (attachmentDetectionFailed) {
+        toast({
+          title: "Não foi possível verificar anexos deste PDF",
+          description: "O envio continuou normalmente; apenas a detecção de anexos incorporados falhou.",
+        });
+      } else if (attachments.length > 0) {
+        console.log(`[UploadModal] "${file.name}": ${attachments.length} anexo(s) incorporado(s) detectado(s).`, attachments);
+      }
 
       setProgress(40);
       setStatus('Enviando arquivo...');
@@ -105,6 +123,7 @@ export function UploadModal() {
         type: 'pdf' as const,
         tags: aiResults.tags,
         keywords: aiResults.keywords,
+        ...(attachments.length > 0 ? { attachments } : {}),
         folderId: state.currentFolderId,
         userId: user.uid,
         sharedWith: selectedEmails
@@ -150,11 +169,14 @@ export function UploadModal() {
       setTimeout(() => {
         setOpen(false);
         resetUpload();
+        const attachmentNote = attachments.length > 0
+          ? ` ${attachments.length} anexo${attachments.length > 1 ? 's' : ''} incorporado${attachments.length > 1 ? 's' : ''} detectado${attachments.length > 1 ? 's' : ''}.`
+          : '';
         toast({
           title: "Sucesso!",
-          description: savedPercent > 1
+          description: (savedPercent > 1
             ? `Seu arquivo foi enviado e processado. Otimização reduziu o tamanho em ${savedPercent}%.`
-            : "Seu arquivo foi enviado e processado."
+            : "Seu arquivo foi enviado e processado.") + attachmentNote
         });
       }, 800);
     } catch (error: any) {
