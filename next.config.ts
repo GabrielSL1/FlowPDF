@@ -9,11 +9,15 @@ import type {NextConfig} from 'next';
 // bloqueiam exfiltração de dados e embeds para domínios não autorizados.
 const contentSecurityPolicy = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com",
+  // unpkg.com em script-src: para carregar o worker cross-origin, o pdf.js
+  // cria um worker a partir de uma blob: (mesma origem) cujo único conteúdo é
+  // `await import("https://unpkg.com/.../pdf.worker.min.mjs")` — esse import
+  // dinâmico DENTRO do worker é regido por script-src, não por worker-src.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://unpkg.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://hvbzkzzcrtopnclbkkbl.supabase.co https://*.googleusercontent.com https://firebasestorage.googleapis.com",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.googleapis.com https://*.google.com https://hvbzkzzcrtopnclbkkbl.supabase.co wss://*.firebaseio.com",
+  "connect-src 'self' https://*.googleapis.com https://*.google.com https://hvbzkzzcrtopnclbkkbl.supabase.co wss://*.firebaseio.com https://unpkg.com",
   "frame-src 'self' https://hvbzkzzcrtopnclbkkbl.supabase.co https://*.firebaseapp.com https://accounts.google.com",
   "worker-src 'self' blob: https://unpkg.com",
   "object-src 'none'",
