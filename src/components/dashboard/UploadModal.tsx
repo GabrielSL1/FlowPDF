@@ -19,7 +19,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { generatePdfThumbnail } from '@/lib/pdf-thumbnail';
 import { optimizePdf } from '@/lib/pdf-optimize';
 import { extractPdfAttachmentsMeta } from '@/lib/pdf-attachments';
+import { supabaseClient, DOCUMENTS_BUCKET } from '@/lib/supabase-client';
 import { collection, addDoc } from 'firebase/firestore';
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 export function UploadModal() {
   const [open, setOpen] = useState(false);
@@ -58,10 +61,16 @@ export function UploadModal() {
     setProgress(0);
     setErrorMessage(null);
     setStatus('Otimizando arquivo...');
+    console.log(`[UploadModal] Iniciando upload de "${originalFile.name}" (${originalFile.size} bytes).`);
 
     try {
       const { file, originalSize, optimizedSize } = await optimizePdf(originalFile);
       const savedPercent = originalSize > 0 ? Math.round((1 - optimizedSize / originalSize) * 100) : 0;
+      console.log(`[UploadModal] Otimização concluída: ${originalSize} -> ${optimizedSize} bytes.`);
+
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error(`Arquivo muito grande (${(file.size / (1024 * 1024)).toFixed(1)}MB). O máximo permitido é 25MB.`);
+      }
 
       setProgress(15);
       setStatus('Gerando preview e analisando arquivo...');
@@ -80,6 +89,7 @@ export function UploadModal() {
             return [];
           }),
       ]);
+      console.log(`[UploadModal] Preview ${thumbnailBlob ? 'gerado' : 'indisponível'}, IA retornou ${aiResults.tags.length} tag(s).`);
 
       if (attachmentDetectionFailed) {
         toast({
@@ -90,25 +100,55 @@ export function UploadModal() {
         console.log(`[UploadModal] "${file.name}": ${attachments.length} anexo(s) incorporado(s) detectado(s).`, attachments);
       }
 
-      setProgress(40);
-      setStatus('Enviando arquivo...');
+      setProgress(35);
+      setStatus('Preparando envio...');
 
       const idToken = await user.getIdToken();
-      const formData = new FormData();
-      formData.append('file', file);
-      if (thumbnailBlob) formData.append('thumbnail', thumbnailBlob, 'thumbnail.jpg');
-
-      const uploadRes = await fetch('/api/upload', {
+      console.log('[UploadModal] Solicitando URLs de upload assinadas ao servidor...');
+      const signRes = await fetch('/api/upload/sign', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${idToken}` },
-        body: formData,
+        headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, fileSize: file.size }),
       });
-      const uploadResult = await uploadRes.json();
+      const signResult = await signRes.json().catch((err) => {
+        console.error('[UploadModal] Resposta de /api/upload/sign não é JSON válido:', err);
+        return null;
+      });
 
-      if (!uploadRes.ok) {
-        setErrorMessage(uploadResult.error || "Não foi possível enviar o arquivo. Tente novamente.");
-        setUploading(false);
-        return;
+      if (!signRes.ok || !signResult?.file) {
+        console.error('[UploadModal] Falha ao obter URLs assinadas:', signRes.status, signResult);
+        throw new Error(signResult?.error || `Não foi possível preparar o envio (HTTP ${signRes.status}).`);
+      }
+
+      setProgress(45);
+      setStatus('Enviando arquivo...');
+      console.log(`[UploadModal] Enviando PDF direto para o Storage em "${signResult.file.path}"...`);
+
+      const { error: fileUploadError } = await supabaseClient.storage
+        .from(DOCUMENTS_BUCKET)
+        .uploadToSignedUrl(signResult.file.path, signResult.file.token, file, { contentType: 'application/pdf' });
+
+      if (fileUploadError) {
+        console.error('[UploadModal] Erro no upload direto do PDF para o Supabase Storage:', fileUploadError);
+        throw new Error('Falha ao enviar o PDF para o armazenamento. Verifique sua conexão e tente novamente.');
+      }
+      console.log('[UploadModal] PDF enviado com sucesso.');
+
+      setProgress(70);
+
+      let thumbnailUrl: string | undefined;
+      if (thumbnailBlob && signResult.thumbnail) {
+        setStatus('Enviando preview...');
+        console.log(`[UploadModal] Enviando thumbnail para "${signResult.thumbnail.path}"...`);
+        const { error: thumbUploadError } = await supabaseClient.storage
+          .from(DOCUMENTS_BUCKET)
+          .uploadToSignedUrl(signResult.thumbnail.path, signResult.thumbnail.token, thumbnailBlob, { contentType: 'image/jpeg' });
+
+        if (thumbUploadError) {
+          console.warn('[UploadModal] Falha ao enviar thumbnail (não bloqueante):', thumbUploadError);
+        } else {
+          thumbnailUrl = signResult.thumbnail.publicUrl;
+        }
       }
 
       setProgress(80);
@@ -116,8 +156,8 @@ export function UploadModal() {
 
       await addDocument({
         name: file.name,
-        url: uploadResult.url,
-        ...(uploadResult.thumbnailUrl ? { thumbnailUrl: uploadResult.thumbnailUrl } : {}),
+        url: signResult.file.publicUrl,
+        ...(thumbnailUrl ? { thumbnailUrl } : {}),
         size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
         uploadDate: new Date().toISOString(),
         type: 'pdf' as const,
@@ -128,6 +168,7 @@ export function UploadModal() {
         userId: user.uid,
         sharedWith: selectedEmails
       });
+      console.log(`[UploadModal] Metadados salvos no Firestore para "${file.name}".`);
 
       setProgress(100);
       setStatus('Finalizado!');
@@ -195,6 +236,15 @@ export function UploadModal() {
       return;
     }
 
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        title: "Arquivo muito grande",
+        description: `O arquivo tem ${(file.size / (1024 * 1024)).toFixed(1)}MB. O máximo permitido é 25MB.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setPendingFile(file);
     await uploadFile(file);
   };
@@ -219,7 +269,7 @@ export function UploadModal() {
         </DialogHeader>
         
         <div className="grid gap-6 py-4">
-          {!uploading ? (
+          {!uploading && !errorMessage ? (
             <>
               {isPublicFolder ? (
                 <div className="flex items-center gap-2 p-3 bg-accent/10 rounded-lg text-accent">
@@ -287,9 +337,14 @@ export function UploadModal() {
                   <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                   <div className="space-y-2 flex-1">
                     <p className="text-[11px] text-destructive font-medium">{errorMessage}</p>
-                    <Button size="sm" variant="outline" onClick={handleRetry} className="h-7 text-xs">
-                      Tentar novamente
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={handleRetry} className="h-7 text-xs">
+                        Tentar novamente
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={resetUpload} className="h-7 text-xs">
+                        Cancelar
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
