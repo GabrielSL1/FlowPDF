@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyIdToken } from '@/lib/firebase-admin';
 import { supabaseAdmin, DOCUMENTS_BUCKET } from '@/lib/supabase-admin';
+import { sanitizeStorageFileName } from '@/lib/storage-utils';
 
 export const runtime = 'nodejs';
 
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'A imagem deve ter no máximo 2MB.' }, { status: 400 });
     }
 
-    const fileName = (file as File).name || 'avatar.jpg';
+    const fileName = sanitizeStorageFileName((file as File).name || 'avatar.jpg');
     const path = `avatars/${uid}/${Date.now()}_${fileName}`;
 
     const { error: uploadError } = await supabaseAdmin.storage

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyIdToken } from '@/lib/firebase-admin';
 import { supabaseAdmin, DOCUMENTS_BUCKET } from '@/lib/supabase-admin';
+import { sanitizeStorageFileName } from '@/lib/storage-utils';
 
 export const runtime = 'nodejs';
 
@@ -55,8 +56,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Arquivo muito grande (máximo 25MB).' }, { status: 400 });
     }
 
-    const storagePath = `${uid}/${Date.now()}_${fileName}`;
-    const thumbPath = `${uid}/thumbnails/${Date.now()}_${fileName}.jpg`;
+    // O Supabase Storage rejeita chaves com acentos (comuns em nomes de
+    // arquivo em português, ex: "Relatório.pdf") com 400 "Invalid key" — só a
+    // CHAVE de armazenamento é sanitizada; o nome original (com acentos) é
+    // salvo no Firestore e usado normalmente na interface.
+    const safeFileName = sanitizeStorageFileName(fileName);
+    const storagePath = `${uid}/${Date.now()}_${safeFileName}`;
+    const thumbPath = `${uid}/thumbnails/${Date.now()}_${safeFileName}.jpg`;
 
     const [fileSignedResult, thumbSignedResult] = await Promise.all([
       supabaseAdmin.storage.from(DOCUMENTS_BUCKET).createSignedUploadUrl(storagePath),
